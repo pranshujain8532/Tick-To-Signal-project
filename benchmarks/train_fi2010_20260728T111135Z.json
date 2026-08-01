@@ -1,0 +1,70 @@
+{
+  "tag": "fi2010",
+  "generated_at_utc": "2026-07-28T11:11:35.215483+00:00",
+  "machine": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "python": "3.10.20",
+    "torch": "2.3.1+cu118",
+    "device": "cuda",
+    "gpu": "NVIDIA GeForce RTX 2050"
+  },
+  "config": {
+    "epochs": 15,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "warmup_fraction": 0.05,
+    "patience": 8,
+    "seed": 20260728,
+    "device": "cuda",
+    "num_workers": 0,
+    "max_batches_per_epoch": 0,
+    "label_smoothing": 0.0,
+    "deterministic": false
+  },
+  "model": {
+    "parameters": 319715,
+    "receptive_field": 83
+  },
+  "data": {
+    "source": "fi2010",
+    "horizon": 10,
+    "citation": "Ntakaris et al. 2018, https://etsin.fairdata.fi/dataset/73eb48d7-4dbc-4a10-a52a-da745b47a649",
+    "preprocessing": "NoAuction_DecPre, 40 raw LOB features, as distributed",
+    "sessions": [
+      "Train_Dst_NoAuction_DecPre_CF_7",
+      "Test_Dst_NoAuction_DecPre_CF_7-9"
+    ],
+    "samples": 394139,
+    "class_balance": {
+      "down": 0.36875822996455565,
+      "flat": 0.2473112277648241,
+      "up": 0.3839305422706203
+    }
+  },
+  "result": {
+    "validation_macro_f1": 0.6505036039690832,
+    "best_epoch": 5,
+    "stopped_early": true,
+    "epochs_run": 14,
+    "test_macro_f1": 0.7514784620905894,
+    "test_accuracy": 0.7531113787565955,
+    "per_class_f1": [
+      0.7284923988326001,
+      0.8008601195283477,
+      0.7250828679108205
+    ],
+    "majority_baseline": {
+      "macro_f1": 0.1704526252692504,
+      "accuracy": 0.3435062514338151,
+      "predicted_class": 2.0
+    }
+  },
+  "artefacts": {
+    "json": "train_fi2010_20260728T111135Z.json",
+    "csv": "train_fi2010_20260728T111135Z_history.csv",
+    "png": "train_fi2010_20260728T111135Z_curves.png",
+    "checkpoint": "checkpoints\\train_fi2010_20260728T111135Z.pt"
+  }
+}

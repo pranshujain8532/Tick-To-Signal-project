@@ -1,0 +1,47 @@
+{
+  "benchmark": "baselines",
+  "generated_at_utc": "2026-07-28T10:24:30.046498+00:00",
+  "machine": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.10.20"
+  },
+  "data": {
+    "tapes": "data/stage3/*.tape",
+    "sessions": [
+      "btcusdt_20260727T191845_898907Z",
+      "btcusdt_20260727T192658_360768Z",
+      "btcusdt_20260727T193712_001784Z"
+    ],
+    "samples": 37165,
+    "fold": {
+      "fold": 2,
+      "train_start": 0,
+      "train_end": 27673,
+      "test_start": 27873,
+      "test_end": 37164,
+      "embargo": 199
+    },
+    "embargo": 199,
+    "fit_samples": 23324,
+    "test_samples": 9292
+  },
+  "results": {
+    "majority_class": {
+      "macro_f1": 0.16572321958057037,
+      "accuracy": 0.3308222126560482,
+      "predicted_class": 2.0
+    },
+    "queue_imbalance_rule": {
+      "macro_f1": 0.3949805330981717,
+      "accuracy": 0.3974386569091692,
+      "dead_zone": 0.86553955078125,
+      "train_macro_f1": 0.3648958993268903
+    },
+    "logistic_regression": {
+      "macro_f1": 0.531678700756716,
+      "accuracy": 0.5298105897546277,
+      "parameters": 123,
+      "fit_seconds": 15.168238300015219
+    }
+  }
+}

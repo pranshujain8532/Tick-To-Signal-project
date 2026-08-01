@@ -1,0 +1,50 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "debug-O0",
+      "displayName": "Reference build (-O0)",
+      "description": "Correctness first: the compiler has barely touched the arithmetic, so any disagreement with PyTorch is the code's fault.",
+      "generator": "MinGW Makefiles",
+      "binaryDir": "${sourceDir}/build/debug-O0",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "TTS_BUILD_LABEL": "debug-O0" }
+    },
+    {
+      "name": "release-O3",
+      "displayName": "Optimised build (-O3, no fast-math)",
+      "description": "The parity test must pass here too, which is what proves the optimiser did not change the answer.",
+      "generator": "MinGW Makefiles",
+      "binaryDir": "${sourceDir}/build/release-O3",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "TTS_BUILD_LABEL": "release-O3" }
+    },
+    {
+      "name": "release-native",
+      "displayName": "Optimised build (-O3 -march=native, still no fast-math)",
+      "description": "The build the benchmarks use. Same source as release-O3, different instruction selection; parity must pass on both or the vectoriser changed the answer.",
+      "generator": "MinGW Makefiles",
+      "binaryDir": "${sourceDir}/build/release-native",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "TTS_NATIVE": "ON", "TTS_BUILD_LABEL": "release-native" }
+    },
+    {
+      "name": "release-avx2",
+      "displayName": "Optimised build with the hand-written AVX2 kernel",
+      "description": "release-native plus the intrinsics in incremental.cpp. Parity and equivalence must pass here too, which is the only reason the intrinsics are trustworthy.",
+      "generator": "MinGW Makefiles",
+      "binaryDir": "${sourceDir}/build/release-avx2",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "TTS_NATIVE": "ON", "TTS_AVX2": "ON", "TTS_BUILD_LABEL": "release-avx2" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug-O0", "configurePreset": "debug-O0" },
+    { "name": "release-O3", "configurePreset": "release-O3" },
+    { "name": "release-native", "configurePreset": "release-native" },
+    { "name": "release-avx2", "configurePreset": "release-avx2" }
+  ],
+  "testPresets": [
+    { "name": "debug-O0", "configurePreset": "debug-O0", "output": { "outputOnFailure": true, "verbosity": "verbose" } },
+    { "name": "release-O3", "configurePreset": "release-O3", "output": { "outputOnFailure": true, "verbosity": "verbose" } },
+    { "name": "release-native", "configurePreset": "release-native", "output": { "outputOnFailure": true, "verbosity": "verbose" } },
+    { "name": "release-avx2", "configurePreset": "release-avx2", "output": { "outputOnFailure": true, "verbosity": "verbose" } }
+  ]
+}

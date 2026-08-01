@@ -1,0 +1,91 @@
+{
+  "benchmark": "calibration",
+  "generated_at_utc": "2026-07-31T18:09:08.506914+00:00",
+  "machine": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.10.20"
+  },
+  "teacher_run": "train_ours_btcusdt_20260728T102758Z.json",
+  "test_samples": 9292,
+  "fp32_macro_f1": 0.5492686681412424,
+  "activation_percentiles": {
+    "p99_9": 12.397957670217114,
+    "p99_99": 22.33192253112793,
+    "max": 22.386281967163086,
+    "std": 1.3680930137634277
+  },
+  "rows": [
+    {
+      "calibration": "real, n=32",
+      "samples": 32,
+      "percentile": 99.99,
+      "macro_f1": 0.5434086690100558,
+      "delta_vs_fp32": -0.005859999131186622,
+      "argmax_agreement": 0.9456521739130435
+    },
+    {
+      "calibration": "real, n=128",
+      "samples": 128,
+      "percentile": 99.99,
+      "macro_f1": 0.5409262255591468,
+      "delta_vs_fp32": -0.0083424425820956,
+      "argmax_agreement": 0.9499569522169609
+    },
+    {
+      "calibration": "real, n=512",
+      "samples": 512,
+      "percentile": 99.99,
+      "macro_f1": 0.5477684296390328,
+      "delta_vs_fp32": -0.0015002385022095943,
+      "argmax_agreement": 0.9623331898407232
+    },
+    {
+      "calibration": "real, n=512, MinMax",
+      "samples": 512,
+      "percentile": null,
+      "macro_f1": 0.5674214175391162,
+      "delta_vs_fp32": 0.018152749397873813,
+      "argmax_agreement": 0.9115368058544985
+    },
+    {
+      "calibration": "real, n=512, pct 99.9",
+      "samples": 512,
+      "percentile": 99.9,
+      "macro_f1": 0.5454393371635738,
+      "delta_vs_fp32": -0.003829330977668577,
+      "argmax_agreement": 0.9595350839431769
+    },
+    {
+      "calibration": "real, n=512, pct 99.0",
+      "samples": 512,
+      "percentile": 99.0,
+      "macro_f1": 0.5610353167694629,
+      "delta_vs_fp32": 0.011766648628220522,
+      "argmax_agreement": 0.9206844597503229
+    },
+    {
+      "calibration": "gaussian noise",
+      "samples": 512,
+      "percentile": null,
+      "macro_f1": 0.5531450035637846,
+      "delta_vs_fp32": 0.0038763354225421764,
+      "argmax_agreement": 0.9261730520878175
+    },
+    {
+      "calibration": "noise x8, too wide",
+      "samples": 512,
+      "percentile": null,
+      "macro_f1": 0.5255848690918471,
+      "delta_vs_fp32": -0.023683799049395327,
+      "argmax_agreement": 0.8421222557038313
+    },
+    {
+      "calibration": "noise x0.05, too narrow",
+      "samples": 512,
+      "percentile": null,
+      "macro_f1": 0.26298126968066354,
+      "delta_vs_fp32": -0.2862873984605789,
+      "argmax_agreement": 0.3872148084373655
+    }
+  ]
+}

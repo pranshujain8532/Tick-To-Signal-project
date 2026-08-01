@@ -1,0 +1,2 @@
+// Hand-written C++ inference path (Stage 6).
+// Mirrors ml/model.py exactly; held to it by a mandatory parity test.

@@ -1,0 +1,73 @@
+# `docker compose up` is the whole demo. No arguments, no keys, no network.
+#
+# WHY DEMO MODE IS THE DEFAULT AND LIVE IS A PROFILE
+#     Someone evaluating this project should not have to obtain exchange
+#     connectivity to see it work, and a demo that depends on Binance being
+#     reachable is a demo that will be broken on the day it matters. The `api`
+#     service replays three committed capture sessions from 2026-07-27 and
+#     produces the same output every time.
+#
+#     Live mode is real, not a stub, and is one flag away:
+#
+#         docker compose --profile live up
+#
+#     That starts `capture` writing tapes into the shared volume and switches
+#     the API to tail them. The two services share `capture-data` rather than
+#     talking to each other, which is deliberate: the capture daemon owns the
+#     exchange connection and the snapshot-synchronisation algorithm, and the
+#     API only ever reads what the daemon has already committed to disk. There
+#     is exactly one implementation of "what the book looked like", which is the
+#     same argument data_engine/replay.py makes for having one replay path.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tick-to-signal-serving
+    ports:
+      - "8000:8000"
+    environment:
+      # Read by serving/api.py. "demo" replays the committed tapes; "live"
+      # tails TTS_TAPE_DIR, which only has anything in it under the live profile.
+      TTS_MODE: "demo"
+      TTS_SPEED: "10"
+    volumes:
+      # Present in both modes so switching profiles needs no compose edit. In
+      # demo mode nothing reads it.
+      - capture-data:/data
+    healthcheck:
+      # The demo is not "up" when the port opens — it is up when the model has
+      # loaded and the producer is running. /health answers that.
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  capture:
+    # Only started by `docker compose --profile live up`. Without the profile,
+    # `docker compose up` ignores this service entirely.
+    profiles: ["live"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tick-to-signal-serving
+    command:
+      - python
+      - -m
+      - data_engine.capture
+      - --symbol
+      - btcusdt
+      - --out
+      - /data
+      - --snapshot-interval
+      - "10"
+    volumes:
+      - capture-data:/data
+    restart: unless-stopped
+
+volumes:
+  capture-data:

@@ -1,0 +1,36 @@
+# Tick-to-Signal dependencies.
+#
+# Policy (see CLAUDE.md): stdlib + the libraries below. Anything else needs a
+# conversation first. Versions are pinned to a major version — tight enough
+# that an API break cannot silently land, loose enough that patch releases
+# do not require a commit.
+
+numpy>=2.0,<3.0
+torch>=2.2,<3.0
+onnxruntime>=1.17,<2.0
+# Not a new capability, and not a fifth opinion about tensors: `onnx` is the
+# format library that `onnxruntime.quantization` imports directly, and that
+# `ml/export.py` uses to read scales and zero-points back out of a quantised
+# graph for notebook 06. It ships as part of the ONNX toolchain CLAUDE.md
+# already approves via onnxruntime, rather than being an independent choice.
+onnx>=1.15,<2.0
+
+fastapi>=0.115,<1.0
+uvicorn>=0.30,<1.0
+# >=14 because capture.py uses the modern `websockets.asyncio.client` API;
+# the legacy `websockets.connect` implementation is deprecated.
+websockets>=14.0,<16.0
+
+pytest>=8.0,<9.0
+
+# Approved as an exception to the dependency policy in CLAUDE.md, and only for
+# the Stage 4 logistic-regression baseline. It is imported inside
+# `ml/baseline.py` and nowhere else: `ml/metrics.py` reimplements macro-F1 in
+# numpy so the training path never depends on it, and nothing under
+# `data_engine/` touches it.
+scikit-learn>=1.4,<2.0
+
+# Notebook toolchain. `jupyter` pulls in nbconvert, which run_checks.sh uses
+# to execute every notebook top-to-bottom as part of the Definition of Done.
+matplotlib>=3.8,<4.0
+jupyter>=1.0,<2.0

@@ -1,0 +1,3 @@
+# Walkthrough notebooks land here, one per stage.
+# Cell pattern (CLAUDE.md): markdown concept -> <=25 lines of code -> markdown
+# interpretation. Every notebook ends with an "## Interview checkpoint" cell.

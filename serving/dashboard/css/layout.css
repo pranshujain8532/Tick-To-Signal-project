@@ -1,0 +1,512 @@
+/* layout.css — one screen, no scrolling, hairlines instead of cards.
+ *
+ * WHAT
+ *     A CSS grid that fills the viewport exactly once. The header is a fixed
+ *     row; everything below it is fractional, so the eight panels compress
+ *     rather than overflow when the window is smaller than 1440x900.
+ *
+ * WHY `overflow: hidden` ON THE ROOT, DELIBERATELY
+ *     This is an instrument, not a document. A scrollbar would mean some panel
+ *     is off-screen, and the panel most likely to end up below the fold is the
+ *     one carrying a negative result — CLAUDE.md is explicit that the honest
+ *     panels get real estate. Making overflow impossible turns "did the
+ *     economics panel fit?" from a thing to remember into a thing the layout
+ *     cannot get wrong. Every panel that could overflow its box clips instead,
+ *     and its canvas is sized from the box it actually got.
+ *
+ * WHY NO CARDS, NO RADIUS, NO SHADOW
+ *     Depth cues imply floating objects. A trading screen is a dense plane of
+ *     information divided by rules, and the visual grammar of one hairline
+ *     between two regions is the whole of it. There is no `border-radius` and
+ *     no `box-shadow` in this file; that is the design decision, stated here so
+ *     nobody adds one thinking it was an oversight.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--sans);
+  /* Grey-on-near-black is a subpixel-antialiasing worst case; greyscale
+   * antialiasing keeps the 10px labels from fringing colour. */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------- grid */
+
+#app {
+  display: grid;
+  height: 100vh;
+  /* 56px header, then: tape block, mid row, bottom row. Fractional so the
+   * layout survives 1280x720 and a 2560x1440 monitor with the same rules. */
+  grid-template-rows: 56px 1.55fr 1fr 1.05fr;
+  grid-template-columns: 1fr 360px;
+  grid-template-areas:
+    "header  header"
+    "tape    ladder"
+    "signal  signal"
+    "bottom  bottom";
+  background: var(--hairline); /* the 1px gaps below ARE this colour showing */
+  gap: var(--hair);
+}
+
+/* Panels sit on --panel over a --hairline grid background, so the 1px gaps in
+ * the grid are the hairlines. One rule draws every divider on the screen. */
+.panel {
+  position: relative;
+  background: var(--panel);
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+#header-panel { grid-area: header; }
+#tape-panel { grid-area: tape; }
+#ladder-panel { grid-area: ladder; }
+#signal-row { grid-area: signal; }
+#bottom-row { grid-area: bottom; }
+
+/* The middle band: signal, IC stability, latency. */
+#signal-row,
+#bottom-row {
+  display: grid;
+  gap: var(--hair);
+  background: var(--hairline);
+  overflow: hidden;
+}
+
+#signal-row {
+  grid-template-columns: 300px 1fr 1.15fr;
+}
+
+/* Economics gets more than half the width. A beautiful dashboard that hid the
+ * negative result would be a worse artefact than a plain one that showed it. */
+#bottom-row {
+  grid-template-columns: 1.15fr 1fr;
+}
+
+/* ----------------------------------------------------------- panel chrome */
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--unit);
+  padding: 6px var(--unit) 4px;
+  border-bottom: var(--hair) solid var(--hairline);
+  white-space: nowrap;
+}
+
+.panel-head .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Canvas fills whatever the grid gave the panel. `display: block` removes the
+ * inline baseline gap that would otherwise make every panel 4px too tall and
+ * put a scrollbar on a layout that promises not to have one. */
+.canvas-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The tape's two layers: a blitted scroll surface with a redrawn overlay on
+ * top. Stacking them means the axis labels are not smeared left by the blit. */
+.layered {
+  position: absolute;
+  inset: 0;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 27px); /* the panel head */
+}
+
+/* Notes are pinned to the bottom of their panel and never scroll away.
+ *
+ * NO max-height AND NO overflow HERE, deliberately. These elements carry the
+ * corrections CLAUDE.md requires beside the claims they qualify, and a clipped
+ * correction is worse than none: it looks like the author meant to say
+ * something and ran out of room. The first version capped them at 40% of the
+ * panel and cut the Pareto panel's relevance note in half at 1440x900.
+ *
+ * The canvas above absorbs the difference — it is `flex: 1 1 auto` with
+ * `min-height: 0`, so a long note shrinks the chart rather than overflowing the
+ * panel. A smaller chart is a fair price for a complete sentence. */
+.note-fixed {
+  flex: 0 0 auto;
+  padding: 6px var(--unit) 7px;
+  border-top: var(--hair) solid var(--hairline);
+}
+
+.note-fixed .note + .note {
+  margin: 5px 0 0;
+}
+
+.note-fixed p {
+  margin: 0;
+}
+
+/* ----------------------------------------------------------------- header */
+
+#header-panel {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 var(--unit) 0 12px;
+  overflow: hidden;
+}
+
+.header-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* The scrub bar. `min-width` is load-bearing: with eight groups competing for
+ * the header, flex shrank this one to about 40 px and the control became a
+ * decorative tick nobody could aim at. */
+.header-group.stretch {
+  flex: 1 1 auto;
+  min-width: 150px;
+}
+
+.symbol {
+  font-family: var(--mono);
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+/* The feed-mode badge must be unmissable: this is the difference between "a
+ * replay of three recorded sessions" and "a live exchange connection", and a
+ * viewer who mistakes one for the other has misunderstood the whole artefact. */
+.badge {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border: var(--hair) solid var(--tape);
+  color: var(--tape);
+}
+
+.badge[data-mode="live"] {
+  border-color: var(--ask);
+  color: var(--ground);
+  background: var(--ask);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.stat-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.stat-value.over-budget {
+  color: var(--ask);
+}
+
+/* No information by colour alone: when the render budget is blown, a text tag
+ * appears beside the number rather than the number merely turning red. */
+.over-tag {
+  display: none;
+  font-family: var(--sans);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--ask);
+}
+
+.over-budget + .over-tag {
+  display: inline;
+}
+
+/* --------------------------------------------------------------- controls */
+
+.control {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  background: transparent;
+  border: var(--hair) solid var(--hairline);
+  padding: 5px 9px;
+  cursor: pointer;
+}
+
+.control:hover {
+  color: var(--text);
+  border-color: var(--dim);
+}
+
+.control[aria-pressed="true"] {
+  color: var(--ground);
+  background: var(--tape);
+  border-color: var(--tape);
+}
+
+/* Visible focus, always, and never only a colour change: a 2px offset ring is
+ * legible regardless of which control is focused or what is behind it. */
+.control:focus-visible,
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.control:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* The scrub bar. Native `input[type=range]` because it is keyboard-operable,
+ * screen-reader-labelled and drag-correct for free; a div-based slider would be
+ * a week of work to get to the same place and would still be worse. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* The track is dim rather than hairline-coloured: a hairline on a panel
+ * background is invisible, and an invisible track reads as a broken control. */
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  background: rgb(var(--dim-rgb) / 0.45);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 2px;
+  background: rgb(var(--dim-rgb) / 0.45);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 3px;
+  height: 14px;
+  margin-top: -6px;
+  background: var(--tape);
+  border: 0;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 3px;
+  height: 14px;
+  border: 0;
+  border-radius: 0;
+  background: var(--tape);
+}
+
+/* ------------------------------------------------------- connection states
+ *
+ * A socket that is down must never leave live-looking data on screen. Dimming
+ * the whole grid is a blunt instrument and that is the point: it is impossible
+ * to look at a disconnected dashboard and read a number off it by accident. */
+
+#app[data-connection="down"] .panel,
+#app[data-connection="retrying"] .panel {
+  opacity: 0.42;
+}
+
+#app[data-connection="gap"] .panel {
+  opacity: 0.55;
+}
+
+/* The banner that replaces the data while there is none. */
+.overlay-banner {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: none;
+  padding: 7px var(--unit);
+  background: var(--ground);
+  border-top: var(--hair) solid var(--hairline);
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.overlay-banner[data-shown="true"] {
+  display: block;
+}
+
+/* ------------------------------------------------------------ static text */
+
+.big-number {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--text);
+}
+
+.contrast-value {
+  color: var(--dim);
+}
+
+.rows {
+  display: grid;
+  gap: 2px;
+  padding: var(--unit);
+  align-content: start;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-name {
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+.shortfall {
+  color: var(--ask);
+}
+
+/* An empty state names the file that would have populated it. Never a
+ * placeholder number, never a spinner that spins forever. */
+.empty-state {
+  padding: var(--unit);
+  font-family: var(--sans);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+.empty-state code {
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+/* The Pareto hover readout. DOM rather than canvas because it is text that
+ * appears once per hover, not sixty times a second. */
+#pareto-tooltip {
+  position: absolute;
+  display: none;
+  padding: 6px 8px;
+  background: var(--ground);
+  border: var(--hair) solid var(--hairline);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* ---------------------------------------------------------------- boot
+ *
+ * The single non-data animation in the project. It exists to frame the thing as
+ * a pipeline rather than a chart, and it is over in 2.5 seconds, never repeats
+ * on reconnect, and is skippable with any key. */
+
+#boot {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: var(--ground);
+}
+
+#boot[hidden] {
+  display: none;
+}
+
+.boot-stages {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  border: var(--hair) solid var(--hairline);
+}
+
+.boot-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 20px;
+  min-width: 116px;
+  border-right: var(--hair) solid var(--hairline);
+  opacity: 0.25;
+  transition: opacity 220ms linear;
+}
+
+.boot-stage:last-child {
+  border-right: 0;
+}
+
+.boot-stage[data-resolved="true"] {
+  opacity: 1;
+}
+
+.boot-stage-value {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--tape);
+  min-height: 12px;
+}
+
+.boot-stage[data-resolved="true"] .boot-stage-value {
+  color: var(--signal);
+}
+
+.boot-hint {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* prefers-reduced-motion renders the final state instantly. This covers the
+ * boot sequence and the level-flash decay; the scrolling tape and the
+ * interpolating numbers stay, because they ARE the data — removing them would
+ * not reduce motion, it would remove the instrument. That distinction is
+ * deliberate and is stated in docs/INTERVIEW_NOTES_stage8b.md. */
+@media (prefers-reduced-motion: reduce) {
+  .boot-stage {
+    transition: none;
+    opacity: 1;
+  }
+}

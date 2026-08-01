@@ -1,0 +1,4 @@
+# Benchmark scripts and their output land here.
+# Results are committed on purpose: the README cites them as evidence.
+# Every result file records a timestamp and machine info; see
+# docs/benchmark_methodology.md for how each number is measured.

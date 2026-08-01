@@ -1,0 +1,109 @@
+/* tokens.css — the entire visual vocabulary, in one place, as custom properties.
+ *
+ * WHAT
+ *     Nine colours, two type stacks, one spacing unit. Every other stylesheet
+ *     and every canvas panel reads from here; nothing else may introduce a
+ *     colour literal.
+ *
+ * WHY A SINGLE SOURCE OF TRUTH RATHER THAN "JUST USE THE HEX"
+ *     Eight canvas panels draw with colours too, and canvas has no cascade —
+ *     a `fillStyle` string is a hard-coded literal by nature. So the panels read
+ *     these properties once at boot via `getComputedStyle` (see js/canvas.js:
+ *     readTokens) instead of repeating the values. That keeps the palette
+ *     auditable: `tests/test_dashboard.py` asserts this file defines exactly
+ *     these nine colours with exactly these values, and that no other hex
+ *     literal appears anywhere under serving/dashboard/.
+ *
+ * THE TWO COLOUR ROLES THAT MUST NEVER MIX
+ *     --tape (amber) is THE MARKET: price, mid, the drift strip, anything the
+ *     exchange said. --signal (cyan) is THE MODEL: the ribbon, the score, the
+ *     probability bar, anything this project inferred. A viewer must be able to
+ *     tell, at a glance and without reading a label, which parts of the screen
+ *     are observation and which are opinion. Bid/ask keep the finance
+ *     convention but desaturated, because saturated RGB reads as a toy.
+ */
+
+:root {
+  /* ---------------------------------------------------------------- colour */
+  --ground: #0B0F14;      /* near-ink, faintly blue — never pure black */
+  --panel: #121820;
+  --hairline: #1F2933;
+  --text: #E6EDF3;
+  --dim: #7D8B9A;
+  --tape: #E8A33D;        /* phosphor amber: the market */
+  --signal: #35D6E8;      /* cyan: the model, and nothing else */
+  --bid: #3FB984;         /* muted mint */
+  --ask: #E4574E;         /* muted coral */
+
+  /* Component triplets for the alpha compositing the canvases need. Same nine
+   * colours; `rgb(var(--x-rgb) / 0.4)` is the only way to vary opacity without
+   * inventing a tenth colour, which the palette forbids. */
+  --tape-rgb: 232 163 61;
+  --signal-rgb: 53 214 232;
+  --bid-rgb: 63 185 132;
+  --ask-rgb: 228 87 78;
+  --text-rgb: 230 237 243;
+  --dim-rgb: 125 139 154;
+  --hairline-rgb: 31 41 51;
+
+  /* ------------------------------------------------------------------ type
+   * IBM Plex is named first and is not bundled: shipping ~200 KB of woff2 into
+   * the image is a dependency decision the constitution says to ask about, and
+   * a container with no network cannot fetch it from a CDN. The fallbacks are
+   * the terminal-grade monospace faces that Windows, macOS and Linux actually
+   * ship, so a machine without Plex still gets the intended texture rather than
+   * Times New Roman. `tnum` is requested explicitly because a live ladder whose
+   * digits change width is unreadable — the numbers must not dance. */
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", "SF Mono", Consolas,
+    "DejaVu Sans Mono", monospace;
+  --sans: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif,
+    "Segoe UI", Roboto, system-ui, sans-serif;
+
+  /* ---------------------------------------------------------------- metric
+   * One 8px base unit, and zero radius anywhere. Panels are separated by
+   * hairlines rather than floated as cards, so there is no shadow token and no
+   * radius token: their absence is the design, not an omission. */
+  --unit: 8px;
+  --hair: 1px;
+}
+
+/* Labels: 10-11px, uppercase, wide tracking. Numbers are the loudest thing on
+ * screen, so labels are deliberately quiet — they are wayfinding, not content. */
+.label {
+  font-family: var(--sans);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.label-strong {
+  color: var(--text);
+}
+
+/* Every numeral on this screen. Tabular figures are not a nicety here: the
+ * ladder rewrites twenty prices sixty times a second and proportional digits
+ * would make the whole column shiver. */
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+  color: var(--text);
+}
+
+/* The permanent corrections required by CLAUDE.md's honesty rules. Dim, small,
+ * and — the part that matters — always rendered. Never a tooltip, never behind
+ * a disclosure triangle, never truncated with an ellipsis. */
+.note {
+  font-family: var(--sans);
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  color: var(--dim);
+}
+
+.note strong {
+  color: var(--text);
+  font-weight: 500;
+}

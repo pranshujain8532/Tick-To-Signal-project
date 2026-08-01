@@ -1,0 +1,77 @@
+# --- Captured data -----------------------------------------------------
+# The tape is large and reproducible by re-capturing; it never goes in git.
+data/
+*.bin
+*.tape
+*.parquet
+*.csv.gz
+
+# The one exception: the small slices bundled for the notebooks, which have to
+# be committed or the notebooks cannot execute from a clean checkout. The .tape
+# is the first 100 blocks of a real capture — truncating on a block boundary
+# leaves a completely valid file, which is one of the points notebook 02 makes.
+!notebooks/sample_data/
+!notebooks/sample_data/*.jsonl.gz
+!notebooks/sample_data/*.tape
+# Stage 6 bundles two tiny ONNX graphs and a sample of teacher logits so
+# notebook 06 can show real quantisation scales and real soft targets without
+# a checkpoint or a tape on disk. ~300 KiB total.
+!notebooks/sample_data/*.onnx
+!notebooks/sample_data/*.npz
+
+# --- Model artifacts ---------------------------------------------------
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.ckpt
+
+# --- Python ------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Notebooks ---------------------------------------------------------
+.ipynb_checkpoints/
+
+# --- C++ build ---------------------------------------------------------
+inference_cpp/build/
+*.o
+*.so
+*.dll
+*.exe
+
+# --- Editors / OS ------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Benchmarks --------------------------------------------------------
+# Benchmark *results* are committed on purpose: the README cites them, so
+# they are evidence, not build output. Only scratch runs are ignored.
+benchmarks/scratch/
+
+# --- Stage 7 C++ ---------------------------------------------------------
+# Build trees and the exported artefacts. Weights and fixtures are generated
+# by `python -m ml.export_weights`; the fixture file alone is 16 MB of float32.
+inference_cpp/build/
+inference_cpp/artifacts/
+
+# NOTE: a bare `docs/` sat here until Stage 7b and was silently excluding every
+# interview-notes file and the benchmark methodology - all of which the README
+# links to, and none of which had ever been committed. Removed. `git ls-files
+# docs/` returning nothing is what surfaced it; a link check would have found it
+# sooner.
+
+docs/

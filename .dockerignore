@@ -1,0 +1,51 @@
+# Keep the build context to what the image actually needs.
+#
+# Without this the context is the whole repository: ~34 MB of captured tapes
+# under data/, the git history, the C++ build trees and the model checkpoints —
+# none of which any COPY in the Dockerfile references. The daemon still has to
+# receive and hash all of it before the first instruction runs.
+#
+# This is not the same list as .gitignore. Several things committed to git are
+# still useless in the image (notebooks, docs, the C++ sources), and one thing
+# git ignores is essential (nothing, currently — the replay tapes and the ONNX
+# graph are both committed on purpose).
+
+.git/
+.gitignore
+.github/
+
+# Captured data. The demo runs on the committed replay tapes under
+# notebooks/sample_data/, which the Dockerfile copies by name.
+data/
+checkpoints/
+*.pt
+*.pth
+
+# Everything under inference_cpp is a separate artefact with its own build; the
+# serving image runs the ONNX graph, not the hand-written C++ path.
+inference_cpp/
+
+# Research surface. The image serves the RESULTS in benchmarks/*.json, not the
+# notebooks that produced them.
+notebooks/*.ipynb
+notebooks/.ipynb_checkpoints/
+docs/
+*.md
+!serving/*.md
+
+# Benchmark artefacts that are not JSON records.
+benchmarks/*.png
+benchmarks/*.csv
+benchmarks/*.py
+
+# Python and tooling noise.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+tests/
+run_checks.sh

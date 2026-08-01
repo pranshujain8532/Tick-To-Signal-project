@@ -1,0 +1,121 @@
+{
+  "benchmark": "binfmt",
+  "generated_at_utc": "2026-07-27T16:25:16.364343+00:00",
+  "machine": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "machine": "AMD64",
+    "python": "3.13.12",
+    "numpy": "2.4.3"
+  },
+  "inputs": {
+    "tape": "btcusdt_20260727T161650_226153Z.tape",
+    "archive": "btcusdt_20260727T161648_872380Z_0000.jsonl.gz",
+    "repeats": 7
+  },
+  "counts": {
+    "tape_blocks": 1073,
+    "tape_snapshots": 1073,
+    "tape_events_real": 107223,
+    "tape_events_diff": 97715,
+    "tape_events_padding": 77,
+    "snapshot_interval": 100,
+    "depth_levels": 10
+  },
+  "sizes": {
+    "json_gzip_bytes": 710446,
+    "json_plain_bytes": 7321739,
+    "tape_bytes": 4661176,
+    "tape_gzip_bytes": 798022
+  },
+  "bytes_per_event": {
+    "binary": 43.47179243259375,
+    "binary_gzip": 7.442638239929866,
+    "json_plain": 68.28515337194445,
+    "json_gzip": 6.625873180194548
+  },
+  "size_ratios": {
+    "binary_vs_json_plain": 1.5707922206756406,
+    "binary_vs_json_gzip": 0.15241775895181817,
+    "binary_gzip_vs_json_gzip": 0.8902586645480952
+  },
+  "timings": {
+    "binary sequential replay": {
+      "label": "binary sequential replay",
+      "units_processed": 108296,
+      "unit_name": "records",
+      "median_seconds": 0.05390410008840263,
+      "min_seconds": 0.053582499967888,
+      "samples": [
+        0.053582499967888,
+        0.05562230001669377,
+        0.05386100010946393,
+        0.0543413000414148,
+        0.05364140006713569,
+        0.05390410008840263,
+        0.05423539993353188
+      ],
+      "median_units_per_second": 2009049.4011103932
+    },
+    "json sequential replay": {
+      "label": "json sequential replay",
+      "units_processed": 107532,
+      "unit_name": "records",
+      "median_seconds": 0.26199110003653914,
+      "min_seconds": 0.26032959995791316,
+      "samples": [
+        0.2632861000020057,
+        0.26088040007743984,
+        0.2634869999019429,
+        0.26154920004773885,
+        0.26710369996726513,
+        0.26199110003653914,
+        0.26032959995791316
+      ],
+      "median_units_per_second": 410441.42333462025
+    },
+    "binary vectorised spreads": {
+      "label": "binary vectorised spreads",
+      "units_processed": 1073,
+      "unit_name": "snapshots",
+      "median_seconds": 0.001368700060993433,
+      "min_seconds": 0.0013204999268054962,
+      "samples": [
+        0.001406800001859665,
+        0.0013469000114127994,
+        0.001368700060993433,
+        0.0013204999268054962,
+        0.0013435999862849712,
+        0.001449999981559813,
+        0.002306499984115362
+      ],
+      "median_units_per_second": 783955.5433505224
+    },
+    "json replay to same spreads": {
+      "label": "json replay to same spreads",
+      "units_processed": 980,
+      "unit_name": "snapshots",
+      "median_seconds": 0.35755780001636595,
+      "min_seconds": 0.2972787000471726,
+      "samples": [
+        1.0755385999800637,
+        0.7767843999899924,
+        0.3450594999594614,
+        0.30589259997941554,
+        0.4030435000313446,
+        0.35755780001636595,
+        0.2972787000471726
+      ],
+      "median_units_per_second": 2740.8156106653078
+    }
+  },
+  "speedups": {
+    "sequential_binary_vs_json": 4.860318595559042,
+    "vectorised_binary_vs_json_replay": 261.23897426938265
+  },
+  "caveats": [
+    "The binary record count includes one block anchor per snapshot_interval events (~1% of records); the JSON count has no equivalent. Wall-clock ratios are the honest comparison, not the per-record rates.",
+    "json_plain_bytes includes the REST depth snapshots the daemon archives for offline cross-checking. The tape does not store those, so JSON carries a small amount of data the binary format does not.",
+    "No core pinning, no thermal control, laptop running a desktop OS."
+  ]
+}

@@ -1,0 +1,23 @@
+# Runtime dependencies for the serving container. A strict subset of the
+# repository's requirements.txt — same pins, fewer packages.
+#
+# WHY A SECOND FILE RATHER THAN `pip install -r requirements.txt`
+#     The top-level file installs torch, scikit-learn, matplotlib and jupyter,
+#     which together are roughly 2.5 GB and are needed to TRAIN and ANALYSE the
+#     model. None of them is needed to RUN it. That is the entire payoff of the
+#     Stage 6 export: the deployment artefact is a 126 KiB ONNX graph, and the
+#     thing that executes it is onnxruntime, not the framework that produced it.
+#
+#     `serving/signal.py:_open_session` exists for the same reason — importing
+#     `ml.export` to reuse six lines would have imported torch and undone this.
+#
+# Nothing here is a new dependency: every line also appears in requirements.txt.
+
+numpy>=2.0,<3.0
+onnxruntime>=1.17,<2.0
+fastapi>=0.115,<1.0
+uvicorn>=0.30,<1.0
+# Only needed by the `capture` profile, which runs data_engine.capture for live
+# mode. It is a few hundred kilobytes and keeping one image for both services is
+# worth more than shaving it.
+websockets>=14.0,<16.0
