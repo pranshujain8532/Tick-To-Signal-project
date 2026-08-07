@@ -6,29 +6,40 @@
 <title>tick-to-signal — live microstructure instrument</title>
 
 <!--
-  index.html — the static chrome, and every permanent correction.
+  index.html — three pages, one render loop, and every permanent correction.
 
-  WHAT
-      The panel skeleton. Nothing here draws data: eight canvases do that, each
-      owned by a module under js/panels/. What lives in this file is the text
-      that must exist whether or not the API answers, whether or not the socket
-      connects, and whether or not any JavaScript runs at all.
+  WHY THREE PAGES AND NOT ONE
+      The first version put eight panels on one screen. At 1440x900 it was
+      dense; at a real browser's ~890 usable pixels it was worse than dense —
+      the ladder's twenty rows had nine pixels each and overprinted, the score
+      drew through the sparkline label, and the Pareto labels piled onto each
+      other. Density is not the same thing as information: a panel too small to
+      read carries none.
 
-  WHY THE CORRECTIONS ARE STATIC HTML AND NOT INJECTED FROM THE API
-      CLAUDE.md forbids three claims "by construction, not by care". A
-      correction fetched from /latency is a correction that disappears when the
-      fetch fails — and the screenshot somebody takes of a half-loaded dashboard
-      is exactly the artefact that would make the forbidden claim. So the
-      corrections are in the markup, permanently, and the API's own prose is
-      rendered BESIDE them when it arrives. Two copies of a fact is a drift
-      risk; tests/test_dashboard.py closes it by asserting the numbers in this
-      file still match serving/records.py.
+      So the panels are grouped by the question they answer, and each group gets
+      a whole screen:
+
+        LIVE      what the market is doing right now, and what the model says
+        EVIDENCE  is the signal real, is it stable, what does it cost to run,
+                  and can it pay for itself
+        SYSTEM    what the pipeline is, what it measured, and what it did not
+
+      The split is also what makes a 60-second demo work: one screen to open on,
+      one screen that carries the argument, one screen for the questions that
+      follow.
+
+  WHAT DOES NOT MOVE BETWEEN PAGES
+      The header and the footer are on every page, and between them they carry
+      the feed mode, the serving-latency readout with its runtime named, and
+      the relevance note that qualifies every latency claim in the project.
+      CLAUDE.md requires those corrections beside the claims they qualify; with
+      more than one page that means "on every page", not "on the page where it
+      happened to fit".
 
   WHY NO BUILD STEP
-      ES modules, loaded directly by the browser, served by the StaticFiles
-      mount in serving/api.py:create_app. No npm, no bundler, no framework. The
-      dashboard for a project about a 126 KiB model should not need a 200 MB
-      toolchain to render a rectangle.
+      ES modules loaded directly by the browser, served by the StaticFiles mount
+      in serving/api.py. No npm, no bundler, no framework. Routing is the URL
+      hash and eight lines of JavaScript.
 -->
 
 <link rel="stylesheet" href="css/tokens.css">
@@ -36,43 +47,38 @@
 </head>
 <body>
 
-<div id="app" data-connection="connecting">
+<div id="app" data-connection="connecting" data-page="live">
 
-  <!-- ==================================================== 1. HEADER STRIP -->
-  <header class="panel" id="header-panel">
-    <div class="header-group">
+  <!-- ======================================================= HEADER ======= -->
+  <header class="chrome" id="header-panel">
+    <div class="brand">
       <span class="symbol" id="symbol">&mdash;</span>
       <!-- Unmissable, and the first thing read: a viewer who mistakes recorded
            replay for a live exchange feed has misunderstood the artefact. -->
       <span class="badge" id="feed-mode" data-mode="demo">demo replay</span>
     </div>
 
-    <div class="header-group">
+    <nav class="tabs" aria-label="Pages">
+      <button class="tab" data-page="live" aria-current="page">
+        <span class="tab-key">1</span> Live
+      </button>
+      <button class="tab" data-page="evidence">
+        <span class="tab-key">2</span> Evidence
+      </button>
+      <button class="tab" data-page="system">
+        <span class="tab-key">3</span> System
+      </button>
+    </nav>
+
+    <div class="header-stats">
       <div class="stat">
-        <span class="label">tape extent</span>
+        <span class="label">tape</span>
         <span class="stat-value" id="tape-extent">&mdash;</span>
       </div>
-    </div>
-
-    <div class="header-group" role="group" aria-label="Replay speed">
-      <span class="label">speed</span>
-      <button class="control" data-speed="1" aria-pressed="false">1&times;</button>
-      <button class="control" data-speed="10" aria-pressed="true">10&times;</button>
-      <button class="control" data-speed="100" aria-pressed="false">100&times;</button>
-      <button class="control" id="pause" aria-pressed="false">pause</button>
-    </div>
-
-    <div class="header-group stretch">
-      <label class="label" for="scrub">scrub</label>
-      <input type="range" id="scrub" min="0" max="1000" value="0" step="1"
-             aria-label="Seek through the replay">
-    </div>
-
-    <div class="header-group">
       <div class="stat">
         <!-- Never bare "latency". This number is one process, one runtime, one
-             forward pass — and it is 78x the C++ figure on the Pareto panel. -->
-        <span class="label">serving (python / onnx int8) p50</span>
+             forward pass — and it is ~80x the C++ figure on the Evidence page. -->
+        <span class="label">serving · python / onnx int8 · p50</span>
         <span class="stat-value" id="serving-p50">&mdash;</span>
       </div>
       <div class="stat">
@@ -81,7 +87,7 @@
       </div>
       <div class="stat">
         <span class="label">render p50 / max</span>
-        <span class="stat-value" id="render-ms">&mdash;</span><span class="over-tag">over budget</span>
+        <span class="stat-value" id="render-ms">&mdash;</span><span class="over-tag">over</span>
       </div>
       <div class="stat">
         <span class="label">fps</span>
@@ -90,14 +96,15 @@
     </div>
   </header>
 
-  <!-- ============================================ 2. DEPTH TAPE + MID DRIFT -->
-  <section class="panel" id="tape-panel" aria-label="Depth tape">
-    <div class="panel-head">
-      <span class="label label-strong">depth tape</span>
-      <span class="label" id="tape-axis-note">y = ticks from mid, signed log &middot; x = one column per rendered frame</span>
-      <span class="label" id="tape-extent-note">&mdash;</span>
-    </div>
-    <div class="panel-body">
+  <!-- ==================================================== PAGE: LIVE ====== -->
+  <main class="page" id="page-live">
+
+    <section class="panel" id="tape-panel" aria-label="Depth tape">
+      <div class="panel-head">
+        <h2 class="panel-title">Depth tape</h2>
+        <span class="panel-sub">y = ticks from mid, signed log &middot; x = one column per delivered frame</span>
+        <span class="panel-meta" id="tape-extent-note">&mdash;</span>
+      </div>
       <div class="canvas-wrap">
         <!-- Two stacked canvases. The lower one is scrolled by blitting itself
              one column left each frame; the upper one carries the centreline,
@@ -106,162 +113,195 @@
         <canvas class="layered" id="tape-overlay"></canvas>
         <div class="overlay-banner" id="tape-banner"></div>
       </div>
+      <p class="panel-foot note">
+        <strong>Top 10 per side &mdash; lossy beyond the touch by design.</strong>
+        Nothing is drawn past level 10 and no fade implies unseen depth.
+        <span class="legend"><i class="swatch swatch-tape"></i>amber is the market</span>
+        <span class="legend"><i class="swatch swatch-signal"></i>blue is the model</span>
+      </p>
+    </section>
+
+    <section class="panel" id="drift-panel" aria-label="Mid price drift">
       <!-- The mid-drift strip is redrawn in full every frame rather than
            blitted like the tape above it. Its y-range auto-ranges to the mid,
            which moves, and blitted history would sit at a scale that no longer
-           applies. The cost is ~1,000 line segments against the tape's ~20,000
-           rectangles, which is why the two panels use opposite strategies. -->
-      <div class="canvas-wrap" style="flex: 0 0 62px; border-top: 1px solid var(--hairline);">
-        <canvas class="layered" id="drift-canvas"></canvas>
-      </div>
-      <div class="note-fixed">
-        <p class="note" id="tape-note">
-          <strong>Top 10 per side &mdash; the tape is lossy beyond the touch by design.</strong>
-          Nothing is drawn past level 10 and no fade implies unseen depth.
-          Amber is the market, cyan is the model: the ribbon on the centreline is
-          this project's output, not the exchange's.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================================ 3. LADDER -->
-  <section class="panel" id="ladder-panel" aria-label="Order book ladder">
-    <div class="panel-head">
-      <span class="label label-strong">ladder</span>
-      <span class="label">price &middot; size &middot; cumulative</span>
-    </div>
-    <div class="panel-body">
+           applies. ~1,000 line segments against the tape's ~20,000 rectangles
+           is why the two panels use opposite strategies. -->
       <div class="canvas-wrap">
-        <canvas id="ladder-canvas"></canvas>
-      </div>
-      <div class="note-fixed">
-        <p class="note" id="ladder-note">
-          Spread in bps is genuinely this small: one 0.01 USDT tick on a
-          ~65,000 USDT mid is <strong>0.0015 bps</strong>, not 0.15 &mdash; the
-          100&times; error Stage 5 caught and corrected.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================== 4-6. SIGNAL / IC STABILITY / LATENCY -->
-  <div id="signal-row">
-
-    <section class="panel" id="signal-panel" aria-label="Model signal">
-      <div class="panel-head">
-        <span class="label label-strong">signal</span>
-        <span class="label" id="signal-state">warming</span>
-      </div>
-      <div class="panel-body">
-        <div class="canvas-wrap">
-          <canvas id="signal-canvas"></canvas>
-        </div>
-        <div class="note-fixed">
-          <p class="note">
-            score = p(up) &minus; p(down), computed server-side.
-            <strong>599 anchors of history</strong> are required after every
-            boundary; until then there is no signal and none is drawn.
-          </p>
-        </div>
+        <canvas id="drift-canvas"></canvas>
       </div>
     </section>
 
+    <section class="panel" id="ladder-panel" aria-label="Order book ladder">
+      <div class="panel-head">
+        <h2 class="panel-title">Ladder</h2>
+        <span class="panel-sub">price &middot; size &middot; cumulative</span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="ladder-canvas"></canvas>
+      </div>
+      <p class="panel-foot note">
+        One 0.01 USDT tick on a ~65,000 USDT mid is <strong>0.0015 bps</strong>,
+        not 0.15 &mdash; the 100&times; error Stage 5 caught and corrected.
+      </p>
+    </section>
+
+    <section class="panel" id="signal-panel" aria-label="Model signal">
+      <div class="panel-head">
+        <h2 class="panel-title">Signal</h2>
+        <span class="panel-sub">score = p(up) &minus; p(down), computed server-side</span>
+        <span class="panel-meta" id="signal-state">warming</span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="signal-canvas"></canvas>
+      </div>
+      <div class="panel-foot foot-row">
+        <p class="note">
+          <strong>599 anchors of history</strong> are required after every
+          session boundary. Until then there is no signal and none is drawn
+          &mdash; the panel never freezes on its last value.
+        </p>
+        <!-- The replay controls live with the live data rather than in the
+             header, and in the flow rather than floating over it: a control bar
+             positioned over the panel covered the right end of the sparkline it
+             was sitting on top of. -->
+        <div class="controls" id="controls" role="group" aria-label="Replay controls">
+          <span class="label">speed</span>
+          <button class="control" data-speed="1" aria-pressed="false">1&times;</button>
+          <button class="control" data-speed="10" aria-pressed="true">10&times;</button>
+          <button class="control" data-speed="100" aria-pressed="false">100&times;</button>
+          <button class="control" id="pause" aria-pressed="false">pause</button>
+          <label class="label" for="scrub">scrub</label>
+          <input type="range" id="scrub" min="0" max="1000" value="0" step="1"
+                 aria-label="Seek through the replay">
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================================================ PAGE: EVIDENCE ====== -->
+  <main class="page" id="page-evidence" hidden>
+
     <section class="panel" id="stability-panel" aria-label="Information coefficient stability">
       <div class="panel-head">
-        <span class="label label-strong">ic stability</span>
-        <span class="label" id="stability-blocks">&mdash;</span>
+        <h2 class="panel-title">IC stability</h2>
+        <span class="panel-sub">Spearman IC per 500-row block, held-out</span>
+        <span class="panel-meta" id="stability-blocks">&mdash;</span>
       </div>
-      <div class="panel-body">
-        <div class="canvas-wrap">
-          <canvas id="stability-canvas"></canvas>
-        </div>
-        <div class="note-fixed">
-          <!-- If one number can be shown, it is 0.073. The pooled figure is
-               present only as a dimmed contrast value, and it is labelled with
-               the reason it is not the edge. -->
-          <p class="note" id="stability-note">
-            pooled <span class="contrast-value" id="pooled-ic">&mdash;</span>
-            &mdash; <strong>inflated by common drift, not tradeable</strong>.
-            The per-block mean is what a trader would experience.
-          </p>
-        </div>
+      <div class="canvas-wrap">
+        <canvas id="stability-canvas"></canvas>
       </div>
+      <!-- If one number can be shown, it is 0.073. The pooled figure is present
+           only as a dimmed contrast value, labelled with why it is not the edge. -->
+      <p class="panel-foot note" id="stability-note">
+        pooled <span class="contrast-value" id="pooled-ic">&mdash;</span>
+        &mdash; <strong>inflated by common drift, not tradeable</strong>. The
+        per-block mean is what a trader would experience.
+      </p>
+    </section>
+
+    <section class="panel" id="economics-panel" aria-label="Trading economics">
+      <div class="panel-head">
+        <h2 class="panel-title">Economics</h2>
+        <span class="panel-sub">the result that decides the project</span>
+        <span class="panel-meta" id="economics-source">&mdash;</span>
+      </div>
+      <div id="economics-body" class="rows"></div>
+      <p class="panel-foot note" id="verdict">&mdash;</p>
     </section>
 
     <section class="panel" id="latency-panel" aria-label="Serving latency">
       <div class="panel-head">
-        <span class="label label-strong">latency &mdash; serving (python / onnx int8)</span>
-        <span class="label" id="latency-samples">&mdash;</span>
+        <h2 class="panel-title">Serving latency</h2>
+        <span class="panel-sub">python / onnx int8 &middot; forward pass only</span>
+        <span class="panel-meta" id="latency-samples">&mdash;</span>
       </div>
-      <div class="panel-body">
-        <div class="canvas-wrap">
-          <canvas id="latency-canvas"></canvas>
-        </div>
-        <div class="note-fixed">
-          <p class="note">
-            <strong>Tails, not averages, decide trades</strong> &mdash; the mean
-            is deliberately absent.
-          </p>
-          <!-- records.RELEVANCE_NOTE, rendered verbatim from /latency. The
-               static sentence below it survives a failed fetch. -->
-          <p class="note" id="relevance-note">
-            Latency is not what makes this signal tradeable: the measured IC
-            half-life is <strong>13.2 s</strong> and the fee shortfall is
-            <strong>70&times;</strong>. The microsecond path matters for signals
-            with sub-second half-lives, and for a maker deciding whether to pull
-            a quote.
-          </p>
-        </div>
+      <div class="canvas-wrap">
+        <canvas id="latency-canvas"></canvas>
       </div>
-    </section>
-  </div>
-
-  <!-- ==================================== 7-8. ECONOMICS / PARETO FRONTIER -->
-  <div id="bottom-row">
-
-    <section class="panel" id="economics-panel" aria-label="Trading economics">
-      <div class="panel-head">
-        <span class="label label-strong">economics &mdash; the result that decides the project</span>
-        <span class="label" id="economics-source">&mdash;</span>
-      </div>
-      <div class="panel-body">
-        <div id="economics-body" class="rows"></div>
-        <div class="note-fixed">
-          <p class="note" id="verdict">&mdash;</p>
-        </div>
-      </div>
+      <p class="panel-foot note">
+        <strong>Tails, not averages, decide trades</strong> &mdash; the mean is
+        deliberately absent.
+      </p>
     </section>
 
     <section class="panel" id="pareto-panel" aria-label="Latency and accuracy frontier">
       <div class="panel-head">
-        <span class="label label-strong">pareto &mdash; latency vs accuracy</span>
-        <span class="label">&#9679; python harness &nbsp; &#9633; c++ harness</span>
+        <h2 class="panel-title">Frontier</h2>
+        <span class="panel-sub">
+          <i class="mark mark-python"></i>python harness
+          <i class="mark mark-cpp"></i>c++ harness
+        </span>
+        <span class="panel-meta">hover a point for exact numbers</span>
       </div>
-      <div class="panel-body">
-        <div class="canvas-wrap">
-          <canvas id="pareto-canvas"></canvas>
-          <div id="pareto-tooltip" role="status"></div>
-        </div>
-        <div class="note-fixed">
-          <p class="note">
-            <strong>Measured path = forward pass only</strong>, prepared feature
-            column &rarr; logits. Feature construction is not included and is not
-            yet measured in C++. The two harnesses are different instruments
-            measuring different programs; the marks differ for that reason and
-            the axis is not a continuum between them.
-          </p>
-          <p class="note" id="pareto-relevance">
-            Latency is not what makes this signal tradeable: half-life
-            <strong>13.2 s</strong>, fee shortfall <strong>70&times;</strong>.
-          </p>
-        </div>
+      <div class="canvas-wrap">
+        <canvas id="pareto-canvas"></canvas>
+        <div id="pareto-tooltip" role="status"></div>
       </div>
+      <p class="panel-foot note">
+        <strong>Measured path = forward pass only</strong>, prepared feature
+        column &rarr; logits. Feature construction is not included and is not yet
+        measured in C++. The two harnesses are different instruments measuring
+        different programs; the axis is not a continuum between them.
+      </p>
     </section>
-  </div>
+  </main>
+
+  <!-- ================================================== PAGE: SYSTEM ====== -->
+  <main class="page" id="page-system" hidden>
+
+    <section class="panel" id="pipeline-panel" aria-label="Pipeline">
+      <div class="panel-head">
+        <h2 class="panel-title">Pipeline</h2>
+        <span class="panel-sub">every hop, with the number that was measured there</span>
+      </div>
+      <div id="pipeline-body" class="pipeline"></div>
+    </section>
+
+    <section class="panel" id="health-panel" aria-label="Live health">
+      <div class="panel-head">
+        <h2 class="panel-title">This session</h2>
+        <span class="panel-sub">measured by this browser, not reported by the server</span>
+      </div>
+      <div id="health-body" class="rows"></div>
+      <p class="panel-foot note">
+        The server destroys a frame when a newer one arrives before the older
+        has been written, because a stale book beside a moved price is
+        <em>wrong</em>, not merely late. Skipped anchors are counted from gaps in
+        the frame sequence &mdash; this client measuring the server's
+        backpressure.
+      </p>
+    </section>
+
+    <section class="panel" id="gaps-panel" aria-label="Known gaps">
+      <div class="panel-head">
+        <h2 class="panel-title">Known gaps</h2>
+        <span class="panel-sub">stated here rather than left to be discovered</span>
+      </div>
+      <div id="gaps-body" class="rows"></div>
+    </section>
+  </main>
+
+  <!-- ======================================================= FOOTER ======= -->
+  <!--
+    On every page, permanently. The header shows a microsecond figure; this is
+    the sentence that stops it being read as the reason the signal works. It is
+    static markup rather than injected from /latency, because a correction that
+    arrives by fetch is absent exactly when the page is broken — which is when a
+    misleading screenshot is most likely to be taken.
+  -->
+  <footer class="chrome" id="footer-strip">
+    <span class="footer-note" id="relevance-note">
+      Latency is not what makes this signal tradeable: the measured IC half-life
+      is <strong>13.2 s</strong> and the fee shortfall is <strong>70&times;</strong>.
+      The microsecond path is the prerequisite for signals with sub-second
+      half-lives, and for a maker deciding whether to pull a quote.
+    </span>
+    <span class="footer-conn" id="connection-state">connecting</span>
+  </footer>
 </div>
 
-<!-- ===================================================== BOOT SEQUENCE -->
+<!-- ===================================================== BOOT SEQUENCE ==== -->
 <!--
   The one animation that does not represent a change in data. It brings the
   pipeline online stage by stage so the thing reads as a system rather than a
@@ -269,26 +309,22 @@
   prefers-reduced-motion, and never replayed on reconnect.
 -->
 <div id="boot">
+  <div class="boot-title">tick-to-signal</div>
   <div class="boot-stages">
     <div class="boot-stage" data-stage="capture">
-      <span class="label">capture</span>
-      <span class="boot-stage-value"></span>
+      <span class="label">capture</span><span class="boot-stage-value"></span>
     </div>
     <div class="boot-stage" data-stage="tape">
-      <span class="label">tape</span>
-      <span class="boot-stage-value"></span>
+      <span class="label">tape</span><span class="boot-stage-value"></span>
     </div>
     <div class="boot-stage" data-stage="features">
-      <span class="label">features</span>
-      <span class="boot-stage-value"></span>
+      <span class="label">features</span><span class="boot-stage-value"></span>
     </div>
     <div class="boot-stage" data-stage="model">
-      <span class="label">model</span>
-      <span class="boot-stage-value"></span>
+      <span class="label">model</span><span class="boot-stage-value"></span>
     </div>
     <div class="boot-stage" data-stage="signal">
-      <span class="label">signal</span>
-      <span class="boot-stage-value"></span>
+      <span class="label">signal</span><span class="boot-stage-value"></span>
     </div>
   </div>
   <span class="boot-hint">press any key to skip</span>

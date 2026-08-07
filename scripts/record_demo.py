@@ -34,6 +34,15 @@ WHY JPEG AND NOT PNG FOR THE VIDEO FRAMES
     output preserves. The three STILLS are PNG, because those are the images
     that end up in the README at full fidelity.
 
+DESIGN DECISION — the recording tours all three pages on a fixed schedule.
+    A demo of the Live page alone shows a market view; what makes this project
+    worth a second look is the Evidence page, and the question a viewer asks
+    after that is answered by the System page. So the recorder switches pages at
+    fixed elapsed times rather than leaving it to whoever presses record.
+
+    The schedule is in `PAGE_SCHEDULE` and is deliberately weighted toward Live:
+    it is the screen that has to earn the next twenty seconds of attention.
+
 DESIGN DECISION — the replay is positioned before the page is loaded.
     The demo has to show the boot sequence, which only happens on page load, and
     a live signal, which needs 599 anchors of warmup after any discontinuity. A
@@ -58,13 +67,20 @@ from pathlib import Path
 
 import websockets
 
-# The stills the README uses. Coordinates are in CSS pixels at 1440x900 and are
-# tied to the grid in serving/dashboard/css/layout.css; if that grid changes,
-# these move with it.
+# Where the recording is at each moment, as (seconds elapsed, page). The tour
+# spends most of its time on Live because that is the screen that has to hold
+# attention; Evidence carries the argument and System answers the follow-up.
+PAGE_SCHEDULE = ((0.0, "live"), (14.0, "evidence"), (21.0, "system"))
+
+# The stills the README uses. Each names the page it must be taken on, and a
+# clip in CSS pixels at the recording size — these are tied to the grid in
+# serving/dashboard/css/layout.css and move with it.
 STILLS = {
-    "hero": None,  # the whole viewport
-    "depth-tape": {"x": 0, "y": 56, "width": 1080, "height": 360, "scale": 2},
-    "pareto": {"x": 772, "y": 655, "width": 668, "height": 245, "scale": 2},
+    "hero": ("live", None),  # the whole viewport
+    "depth-tape": ("live", {"x": 0, "y": 61, "width": 1180, "height": 420, "scale": 2}),
+    "evidence": ("evidence", None),
+    "pareto": ("evidence", {"x": 960, "y": 466, "width": 960, "height": 424, "scale": 2}),
+    "system": ("system", None),
 }
 
 
@@ -188,8 +204,18 @@ async def record(arguments: argparse.Namespace) -> None:
         deadline = started + arguments.seconds
         timestamps: list[float] = []
         index = 0
+        next_page = 0
 
         while loop.time() < deadline:
+            # Page changes are driven from here rather than by a timer inside
+            # the page, so the tour is a property of the recording and not of
+            # the dashboard: nothing in the shipped UI moves on its own.
+            elapsed = loop.time() - started
+            while next_page < len(PAGE_SCHEDULE) and elapsed >= PAGE_SCHEDULE[next_page][0]:
+                page = PAGE_SCHEDULE[next_page][1]
+                await devtools.evaluate(f'window.location.hash = "{page}"')
+                next_page += 1
+
             try:
                 params = await devtools.next_event("Page.screencastFrame", timeout=5.0)
             except asyncio.TimeoutError:
@@ -240,25 +266,30 @@ def write_manifest(frames_directory: Path, timestamps: list[float]) -> None:
 
 
 async def capture_stills(devtools: DevTools, directory: Path) -> None:
-    """Three PNGs: the whole dashboard, the depth tape, the Pareto panel."""
+    """One PNG per entry in STILLS, each taken on the page it belongs to."""
     directory.mkdir(parents=True, exist_ok=True)
-    for name, clip in STILLS.items():
+    for name, (page, clip) in STILLS.items():
+        await devtools.evaluate(f'window.location.hash = "{page}"')
+        # A page switch reveals canvases that were zero-sized while hidden, so
+        # their ResizeObserver has to fire and the render loop has to draw at
+        # least one frame before the screenshot is worth taking.
+        await asyncio.sleep(1.2)
         parameters = {"format": "png"}
         if clip is not None:
             parameters["clip"] = {**clip, "scale": clip["scale"]}
         result = await devtools.call("Page.captureScreenshot", **parameters)
         target = directory / f"{name}.png"
         target.write_bytes(base64.b64decode(result["data"]))
-        print(f"  still: {target}")
+        print(f"  still: {target.name}")
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--url", default="http://localhost:8000")
     parser.add_argument("--port", type=int, default=9222, help="Chrome remote debugging port")
-    parser.add_argument("--seconds", type=float, default=23.0)
-    parser.add_argument("--width", type=int, default=1440)
-    parser.add_argument("--height", type=int, default=900)
+    parser.add_argument("--seconds", type=float, default=26.0)
+    parser.add_argument("--width", type=int, default=1920)
+    parser.add_argument("--height", type=int, default=1000)
     parser.add_argument("--quality", type=int, default=92)
     # A fraction of the total replay, so a run records the same market twice.
     parser.add_argument("--seek", type=float, default=0.34)

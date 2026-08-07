@@ -79,9 +79,6 @@ const RENDER_MASK = RENDER_SAMPLES - 1;
 /** The widest a rendered gap may be, in columns. See `applyBoundary`. */
 const GAP_COLUMN_CAP = 240;
 
-/** How long the screen stays dimmed after a gap, in milliseconds. */
-const GAP_DIM_MS = 1400;
-
 /** Column flags. A column is drawn from these, not from ambient state. */
 export const FLAG_GAP = 1; // unobserved market time: draw nothing at all
 export const FLAG_WARMUP = 2; // book present, model not ready: no ribbon
@@ -168,8 +165,6 @@ export function createState() {
     gapColumnsPending: 0,
     /** Text for the banner while there is no data, or null. */
     gapMessage: null,
-    /** Wall-clock deadline until which the panels are dimmed for a gap. */
-    gapDimUntil: 0,
     /** A one-column marker (loop wrap, seek, speed change) owed to the tape. */
     markPending: null,
     /** Exponential mean of tape nanoseconds per column, for gap width. */
@@ -188,6 +183,8 @@ export function createState() {
     speed: 10,
     paused: false,
     connection: "connecting",
+    /** Which page is showing. The render loop skips every other page's panels. */
+    page: "live",
   };
 }
 
@@ -303,12 +300,13 @@ export function applyBoundary(state, message) {
     const clamped = wanted > GAP_COLUMN_CAP ? " — blank clamped to fit the panel" : "";
     state.gapMessage =
       `resync gap — feed discontinuity, no data for ${seconds} s of market${clamped}`;
-    // Dim the whole screen for as long as the banner is up. Only for a real
-    // gap, and only briefly: at 10x the committed set crosses a boundary every
-    // few seconds, and a dashboard that spent a third of its life greyed out
-    // would train a viewer to ignore the one signal that means "these numbers
-    // are not continuous with the ones you just read".
-    state.gapDimUntil = performance.now() + GAP_DIM_MS;
+    // NOTHING ELSE HAPPENS HERE, and that is a correction. An earlier version
+    // dimmed every panel for 1.4 s on each boundary; at 10x the committed set
+    // crosses one every ~7 s, so the whole screen strobed and read as a
+    // rendering fault rather than as information. The gap is already
+    // unmistakable where it occurs: blank columns at the true width of the
+    // missing time, a banner naming the duration, and a drift line that breaks
+    // rather than joins. A fourth signal was noise.
   } else {
     state.gapColumnsPending = 0;
     state.gapMessage = null;

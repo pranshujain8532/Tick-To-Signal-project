@@ -57,18 +57,25 @@ export function createSignalPanel(tokens) {
         : `warming · ${state.warmupRemaining} of ${state.warmupRequired} anchors`
     );
 
-    // Laid out from the bottom up, from the panel's actual height. The first
-    // version positioned the three blocks independently from the top and drew
-    // the score straight through the sparkline label, because the panel is
-    // ~146 px tall once the permanent note beneath it has taken its space —
-    // which is less than the sum of three blocks sized for a taller box.
-    const sparkTop = height - 38;
-    const scoreBaseline = sparkTop - 26;
-    const barTop = 20;
+    // THREE COLUMNS ACROSS A WIDE STRIP, not three rows in a narrow one.
+    //
+    // The first version stacked these vertically in a 300 px column, and at the
+    // panel's real height the 38 px score drew straight through the sparkline's
+    // label. Laid out horizontally the score gets to be the size it deserves —
+    // it is the one number on the Live page a viewer should read from across a
+    // room — and each block has its own space instead of competing for rows.
+    const scoreWidth = Math.min(380, width * 0.24);
+    const barLeft = scoreWidth + 24;
+    const barWidth = Math.min(460, width * 0.3);
+    const sparkLeft = barLeft + barWidth + 40;
 
-    drawStackedBar(ctx, state, width, barTop);
-    drawScore(ctx, state, width, scoreBaseline);
-    drawSparkline(ctx, state, width, sparkTop, 30);
+    // Every column shares one label row, so the three headings line up and none
+    // of them can drift into the panel head above. Content starts below it.
+    const labelY = 18;
+
+    drawScore(ctx, state, 16, height, labelY);
+    drawStackedBar(ctx, state, barLeft, barWidth, height, labelY);
+    drawSparkline(ctx, state, sparkLeft, width - sparkLeft - 16, height, labelY);
   }
 
   function setStateText(text) {
@@ -77,15 +84,16 @@ export function createSignalPanel(tokens) {
     lastStateText = text;
   }
 
-  function drawStackedBar(ctx, state, width, y) {
-    const left = 10;
-    const barWidth = width - 20;
-    const barHeight = 14;
+  function drawStackedBar(ctx, state, left, barWidth, height, labelY) {
+    const y = labelY + 22;
+    const barHeight = 18;
+
+    labelText(ctx, tokens, "class probabilities", left, labelY, { colour: tokens.dim });
 
     if (!state.hasSignal) {
       ctx.fillStyle = tokens.alpha.dim(0.12);
       ctx.fillRect(left, y, barWidth, barHeight);
-      labelText(ctx, tokens, "no signal — history discarded at boundary", left, y + barHeight + 12, {
+      labelText(ctx, tokens, "no signal — history discarded at boundary", left, y + 36, {
         colour: tokens.dim,
       });
       return;
@@ -112,18 +120,17 @@ export function createSignalPanel(tokens) {
     // same few pixels. The bar shows the proportions; the row below always shows
     // all three numbers, which is also what keeps the classes distinguishable
     // without relying on colour.
-    const labelY = y + barHeight + 12;
     const aligns = ["left", "center", "right"];
     const positions = [left, left + barWidth / 2, left + barWidth];
     for (let index = 0; index < segments.length; index += 1) {
       const segment = segments[index];
-      labelText(
+      numberText(
         ctx,
         tokens,
         `${segment.text} ${(segment.value * 100).toFixed(0)}%`,
         positions[index],
-        labelY,
-        { colour: segment.colour, align: aligns[index], upper: false }
+        y + 36,
+        { size: 13, colour: segment.colour, align: aligns[index] }
       );
     }
   }
@@ -135,9 +142,14 @@ export function createSignalPanel(tokens) {
    * already says "score = p(up) − p(down), computed server-side". Drawing it
    * twice cost a whole row in a panel that does not have one to spare.
    */
-  function drawScore(ctx, state, width, y) {
-    numberText(ctx, tokens, state.hasSignal ? signed(shownScore, 3) : "—", 10, y, {
-      size: 32,
+  function drawScore(ctx, state, left, height, labelY) {
+    labelText(ctx, tokens, "score = p(up) − p(down)", left, labelY, { colour: tokens.dim });
+    // Sized from the panel rather than fixed, so the number is as large as the
+    // strip allows and never larger — at 56 px in a short panel it collided
+    // with both the heading above it and the note below.
+    const size = Math.max(28, Math.min(54, height - 46));
+    numberText(ctx, tokens, state.hasSignal ? signed(shownScore, 3) : "—", left, labelY + 20 + size / 2, {
+      size,
       colour: state.hasSignal ? tokens.signal : tokens.dim,
     });
   }
@@ -149,18 +161,14 @@ export function createSignalPanel(tokens) {
    * flat signal look dramatic, which for a model whose per-block IC mean is
    * +0.073 would be actively misleading. The scale is printed for that reason.
    */
-  function drawSparkline(ctx, state, width, top, usable) {
-    const left = 10;
-    const drawWidth = width - 20;
+  function drawSparkline(ctx, state, left, drawWidth, height, labelY) {
+    if (drawWidth < 80) return;
+    const top = labelY + 16;
+    const usable = height - top - 12;
     const centre = top + usable / 2;
 
     hairline(ctx, left, centre, drawWidth, 0, tokens.alpha.hairline(1), surface.dpr);
-    // Right-aligned so it shares a row with the score rather than needing one.
-    labelText(ctx, tokens, "score history · fixed ±0.5", width - 10, top - 8, {
-      colour: tokens.dim,
-      align: "right",
-      upper: false,
-    });
+    labelText(ctx, tokens, "score history · fixed ±0.5", left, labelY, { colour: tokens.dim });
 
     if (state.scoreCount === 0) return;
     const visible = Math.min(state.scoreCount, SIGNAL_HISTORY);
@@ -168,7 +176,7 @@ export function createSignalPanel(tokens) {
 
     ctx.beginPath();
     ctx.strokeStyle = tokens.signal;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     for (let back = visible - 1; back >= 0; back -= 1) {
       const index = (state.scoreHead - back + SIGNAL_HISTORY * 2) % SIGNAL_HISTORY;
       const value = Math.max(-0.5, Math.min(0.5, state.scoreHistory[index]));

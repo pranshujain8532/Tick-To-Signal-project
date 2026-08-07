@@ -3,18 +3,25 @@
 **A live order-book microstructure system, end to end: exchange capture → custom
 binary tape → a from-scratch deep LOB model → cost-aware evaluation →
 compression → a hand-written C++ model forward pass at 11 µs p50 → FastAPI
-serving and a 60 fps dashboard.** The signal is real, measured, and too small to
-pay exchange fees — and the dashboard says so on its own front page.
+serving and a dashboard that renders at the display's refresh rate.** The signal
+is real, measured, and too small to pay exchange fees — and the dashboard says so
+on its own front page.
 
 ![the dashboard, replaying three recorded BTCUSDT capture sessions at 10x](docs/assets/demo.gif)
 
-*23 s loop, recorded from the running container by
-[`scripts/record_demo.sh`](scripts/record_demo.sh) — the boot sequence,
-liquidity building and evaporating on the depth tape, the model's signal ribbon
-on the centreline, a real feed discontinuity rendered as a gap, and the latency
-histogram settling. Higher quality:
-[docs/assets/demo.mp4](docs/assets/demo.mp4). It is a 16 fps screencast of a UI
-that renders at 60.*
+*26 s loop, recorded from the running container by
+[`scripts/record_demo.sh`](scripts/record_demo.sh) — the boot sequence, then a
+tour of all three screens: **Live** (depth tape, ladder, signal), **Evidence**
+(IC stability, economics, latency, frontier) and **System** (the pipeline with
+its measured numbers, and what was not measured). Higher quality:
+[docs/assets/demo.mp4](docs/assets/demo.mp4). It is a 17 fps screencast of a UI
+that renders at 144.*
+
+Three screens, keys `1` `2` `3`:
+[**Live**](docs/assets/hero.png) — depth tape, ladder, signal ·
+[**Evidence**](docs/assets/evidence.png) — IC stability, economics, latency,
+frontier · [**System**](docs/assets/system.png) — the pipeline with its measured
+numbers, and what was not measured.
 
 ```bash
 docker compose up          # then open http://localhost:8000
@@ -72,7 +79,7 @@ therefore not tradeable as a taker by anyone at any published tier.*
 | **Vectorised read** (mmap, zero-copy) | **784 k snapshots/s — 261× faster** than full JSON replay | 2.7 k snapshots/s | [binfmt](benchmarks/binfmt_20260727T162516Z.json) |
 | **C++/PyTorch parity** (mandatory test) | **max abs diff 2.4e-05**, argmax **1000/1000**, green on all four builds | tolerance 1e-4, 1,000 real held-out windows | [inference_cpp](inference_cpp/) · [stage 7a notes](docs/INTERVIEW_NOTES_stage7a.md) |
 | **Incremental vs full recompute** (mandatory test) | **bit-identical**, 333/333 comparisons | equality, not a tolerance | [incremental_test.cpp](inference_cpp/tests/incremental_test.cpp) |
-| **Dashboard render** | **60.0 fps**, p50 **1.00 ms** / max 5.60 ms per frame, 0 frames over 12 ms in 60 s | budget 4 ms, enforced by an on-screen meter | [stage 8b notes](docs/INTERVIEW_NOTES_stage8b.md) · [method §8](docs/benchmark_methodology.md) |
+| **Dashboard render** | **144.7 fps** at the display's refresh rate, p50 **1.70 ms** / max 4.20 ms per frame | budget 4 ms, enforced by an on-screen meter; ~40 fps under headless *software* rasterisation, where the compositor rather than the loop is the limit | [stage 8b notes](docs/INTERVIEW_NOTES_stage8b.md) · [method §8](docs/benchmark_methodology.md) |
 
 ### The latency frontier
 
@@ -153,7 +160,7 @@ flowchart LR
     E["<b>evaluation</b><br/>per-block IC +0.073, IR 0.21<br/>half-life 13.2 s · +4.25 sigma<br/><b>+0.285 bps, 70x short of fees</b>"]
     F["<b>compression</b><br/>ONNX fp32 -> int8 -> 32k student<br/>1,718 -> 1,147 -> 729 us p50<br/>distillation: no measurable benefit"]
     G["<b>C++ model forward pass</b><br/>no BLAS, no libtorch<br/>parity 2.4e-05, argmax 1000/1000<br/>2,119 us full -> <b>11.0 us</b> incremental<br/>feature construction NOT included"]
-    H["<b>serving</b><br/>push socket, credit flow control<br/>ONNX int8 in-process<br/>dashboard 60 fps, 1.00 ms/frame"]
+    H["<b>serving</b><br/>push socket, credit flow control<br/>ONNX int8 in-process<br/>dashboard 144 fps, 1.70 ms/frame"]
 
     A --> B --> C --> D --> E
     D --> F --> G

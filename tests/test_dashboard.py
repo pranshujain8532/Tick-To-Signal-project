@@ -90,7 +90,16 @@ def test_the_dashboard_never_calls_the_serving_figure_bare_latency():
     """
     markup = collapsed(INDEX).lower()
 
-    assert "serving (python / onnx int8)" in markup
+    # The label on the live readout must name the runtime. Asserted on the words
+    # rather than on the exact punctuation: the first version pinned the literal
+    # string "serving (python / onnx int8)" and failed the day the separator
+    # changed, which taught nothing — the property worth guarding is that the
+    # number is never presented as an unqualified "latency".
+    label = markup.split('id="serving-p50"')[0].rsplit('<span class="label">', 1)[-1]
+    assert "serving" in label
+    assert "python" in label and "onnx int8" in label
+    assert not label.strip().startswith("latency")
+
     assert "forward pass only" in markup
     assert "python harness" in markup and "c++ harness" in markup
     assert "is not yet measured in c++" in markup
@@ -143,9 +152,9 @@ def test_the_palette_is_exactly_the_nine_locked_colours():
         "--text": "#E6EDF3",
         "--dim": "#7D8B9A",
         "--tape": "#E8A33D",
-        "--signal": "#35D6E8",
-        "--bid": "#3FB984",
-        "--ask": "#E4574E",
+        "--signal": "#8FB5DA",
+        "--bid": "#4F9E79",
+        "--ask": "#C96A5F",
     }
     tokens = read(TOKENS)
 
@@ -160,7 +169,7 @@ def test_no_colour_literal_appears_outside_the_token_file():
     """Canvas has no cascade, so a panel could trivially hardcode a colour.
 
     Every panel reads the palette through `canvas.js:readTokens` instead. This
-    is the check that keeps that true: one stray `#3FB984` in a draw call would
+    is the check that keeps that true: one stray `#4F9E79` in a draw call would
     survive any number of code reviews and would silently ignore a palette
     change.
     """
@@ -180,9 +189,9 @@ def test_rgb_alpha_variants_are_composed_from_the_same_nine_colours():
     tokens = read(TOKENS)
     for name, value in [
         ("--tape-rgb", "232 163 61"),
-        ("--signal-rgb", "53 214 232"),
-        ("--bid-rgb", "63 185 132"),
-        ("--ask-rgb", "228 87 78"),
+        ("--signal-rgb", "143 181 218"),
+        ("--bid-rgb", "79 158 121"),
+        ("--ask-rgb", "201 106 95"),
     ]:
         assert f"{name}: {value};" in tokens
 
@@ -262,3 +271,75 @@ def test_the_render_loop_is_the_only_animation_frame_request():
         if re.search(r"requestAnimationFrame\s*\(", read(path)) and path.name != "render.js"
     ]
     assert not offenders, f"only render.js may drive frames, but so does: {offenders}"
+
+
+# ------------------------------------------------------------- the three pages
+
+
+def test_the_dashboard_has_exactly_three_pages_and_a_tab_for_each():
+    """The split that made the panels legible, guarded so it stays deliberate.
+
+    Eight panels on one screen was unreadable at a real browser's ~890 usable
+    pixels. Three pages of four is the fix, and a fourth page appearing without
+    a tab — or a tab without a page — is the way that decays.
+    """
+    markup = read(INDEX)
+
+    pages = set(re.findall(r'<main class="page" id="page-(\w+)"', markup))
+    tabs = set(re.findall(r'<button class="tab" data-page="(\w+)"', markup))
+
+    assert pages == {"live", "evidence", "system"}
+    assert tabs == pages, "every page needs a tab and every tab needs a page"
+
+
+def test_the_permanent_corrections_live_outside_every_page():
+    """With more than one page, "beside the claim" has to mean "on every page".
+
+    The header carries a microsecond figure on all three pages, so the sentence
+    that stops it being read as the reason the signal works cannot live inside
+    one of them. This asserts the relevance note is in the footer — which is
+    chrome, outside `<main class="page">` — and would fail if somebody moved it
+    into a panel.
+    """
+    markup = read(INDEX)
+
+    footer = markup.split('<footer class="chrome"', 1)[1]
+    assert "13.2 s" in footer
+    assert "70" in footer
+    assert "not what makes this signal tradeable" in footer
+
+    # And it must not be inside any page, which is what would make it
+    # conditional on which tab happens to be open.
+    for page in re.findall(r'<main class="page".*?</main>', markup, flags=re.S):
+        assert "not what makes this signal tradeable" not in page
+
+
+def test_the_render_loop_skips_panels_whose_page_is_not_showing():
+    """The page switch is a performance boundary, not only a navigational one.
+
+    The depth tape is the expensive surface and it is on exactly one of the
+    three pages; drawing it while somebody reads the Evidence page would spend
+    the frame budget on pixels nobody is looking at.
+    """
+    loop = read(DASHBOARD / "js" / "render.js")
+    assert "entry.page !== state.page" in loop
+    assert "continue" in loop
+
+
+def test_a_session_gap_never_dims_the_whole_screen():
+    """The strobe, guarded against coming back.
+
+    An earlier version faded every panel to 55% for 1.4 s on every session
+    boundary. At 10x the committed set crosses one every ~7 s, so the screen
+    flashed every few seconds and read as a rendering fault. A gap is already
+    said three times where it happens — blank columns, a banner, a broken drift
+    line — and the connection dim is reserved for a socket that is actually
+    down.
+    """
+    css = read(DASHBOARD / "css" / "layout.css")
+    state = read(DASHBOARD / "js" / "state.js")
+
+    assert 'data-connection="gap"' not in css
+    assert "gapDimUntil" not in state
+    # The dim that remains is for a dropped socket, which is rare and important.
+    assert 'data-connection="down"' in css

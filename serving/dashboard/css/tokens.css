@@ -16,11 +16,25 @@
  *
  * THE TWO COLOUR ROLES THAT MUST NEVER MIX
  *     --tape (amber) is THE MARKET: price, mid, the drift strip, anything the
- *     exchange said. --signal (cyan) is THE MODEL: the ribbon, the score, the
- *     probability bar, anything this project inferred. A viewer must be able to
- *     tell, at a glance and without reading a label, which parts of the screen
- *     are observation and which are opinion. Bid/ask keep the finance
- *     convention but desaturated, because saturated RGB reads as a toy.
+ *     exchange said. --signal (steel blue) is THE MODEL: the ribbon, the score,
+ *     the probability bar, anything this project inferred. A viewer must be able
+ *     to tell, at a glance and without reading a label, which parts of the
+ *     screen are observation and which are opinion.
+ *
+ * WHY THE MODEL COLOUR IS A MUTED BLUE AND NOT AN ELECTRIC CYAN
+ *     It was #35D6E8 — a fully saturated cyan — and on a near-black ground that
+ *     is the single most recognisable "generated dashboard" signature there is.
+ *     It also fought the amber for attention, which inverted the intended
+ *     hierarchy: the market is the subject and the model's opinion is an
+ *     annotation on it, so the annotation must not be the brightest thing on
+ *     screen.
+ *
+ *     The palette a trading terminal actually uses is one warm accent against
+ *     desaturated cool tones. Amber stays because it is the genuine article —
+ *     phosphor, and the convention this subject comes from. Everything else is
+ *     pulled toward grey until only the amber is allowed to shout. Bid and ask
+ *     keep the finance convention and are desaturated for the same reason:
+ *     saturated RGB reads as a toy.
  */
 
 :root {
@@ -31,17 +45,17 @@
   --text: #E6EDF3;
   --dim: #7D8B9A;
   --tape: #E8A33D;        /* phosphor amber: the market */
-  --signal: #35D6E8;      /* cyan: the model, and nothing else */
-  --bid: #3FB984;         /* muted mint */
-  --ask: #E4574E;         /* muted coral */
+  --signal: #8FB5DA;      /* steel blue: the model, and nothing else */
+  --bid: #4F9E79;         /* muted mint */
+  --ask: #C96A5F;         /* muted coral */
 
   /* Component triplets for the alpha compositing the canvases need. Same nine
    * colours; `rgb(var(--x-rgb) / 0.4)` is the only way to vary opacity without
    * inventing a tenth colour, which the palette forbids. */
   --tape-rgb: 232 163 61;
-  --signal-rgb: 53 214 232;
-  --bid-rgb: 63 185 132;
-  --ask-rgb: 228 87 78;
+  --signal-rgb: 143 181 218;
+  --bid-rgb: 79 158 121;
+  --ask-rgb: 201 106 95;
   --text-rgb: 230 237 243;
   --dim-rgb: 125 139 154;
   --hairline-rgb: 31 41 51;

@@ -41,8 +41,13 @@ import { price as formatPrice, size as formatSize, bps as formatBps } from "../f
 
 /** How long a changed level stays lit. Long enough to see, short enough to read. */
 const FLASH_MS = 120;
-/** The gutter between the two sides, in CSS pixels. */
-const GUTTER_HEIGHT = 34;
+/** The gutter between the two sides, in CSS pixels.
+ *
+ * Taller than it looks like it needs to be, because it holds the spread in two
+ * units and the tick size, and because it is the visual centre of the panel —
+ * the touch is what a reader looks at first and it should not be a cramped
+ * line between two dense blocks. */
+const GUTTER_HEIGHT = 52;
 
 export function createLadderPanel(tokens) {
   const surface = createSurface(document.getElementById("ladder-canvas"));
@@ -59,8 +64,12 @@ export function createLadderPanel(tokens) {
     const rowsPerSide = DEPTH;
     const available = height - GUTTER_HEIGHT;
     const rowHeight = available / (rowsPerSide * 2);
-    const barLeft = width - 74;
-    const barWidth = 62;
+    // The cumulative bar gets a quarter of the width and the numbers get the
+    // rest. At the panel's real width (400 px) that is ~100 px of bar against
+    // ~290 px of price and size, which is the split that keeps six significant
+    // digits of price and three decimals of size from ever colliding.
+    const barWidth = Math.min(104, width * 0.26);
+    const barLeft = width - barWidth - 12;
 
     // Cumulative depth is normalised against the deeper side, so the two halves
     // of the ladder are comparable to each other rather than each to itself —
@@ -134,21 +143,24 @@ export function createLadderPanel(tokens) {
     const age = row.now - row.flashAt;
     if (age >= 0 && age < FLASH_MS && !reducedMotion) {
       ctx.fillStyle = row.alpha(0.3 * (1 - age / FLASH_MS));
-      ctx.fillRect(row.barLeft - 66, row.y + 1, 62, row.rowHeight - 2);
+      ctx.fillRect(row.barLeft - 82, row.y + 1, 76, row.rowHeight - 2);
     }
 
     // Cumulative depth, drawn as a bar that grows leftward from the right edge
     // so the two sides mirror around the gutter.
     const fraction = Math.min(1, row.cumulative / row.scale);
     ctx.fillStyle = row.alpha(0.3);
-    ctx.fillRect(row.barLeft, centre - 3, row.barWidth * fraction, 6);
+    ctx.fillRect(row.barLeft, centre - 4, row.barWidth * fraction, 8);
 
-    numberText(ctx, tokens, formatPrice(row.price), 10, centre, {
-      size: 12,
+    // Sized from the row height rather than fixed, so the panel stays legible
+    // whether it is 640 px tall on the Live page or squeezed on a small window.
+    const fontSize = Math.max(10, Math.min(14, row.rowHeight - 12));
+    numberText(ctx, tokens, formatPrice(row.price), 12, centre, {
+      size: fontSize,
       colour: row.colour,
     });
-    numberText(ctx, tokens, formatSize(row.size), row.barLeft - 10, centre, {
-      size: 12,
+    numberText(ctx, tokens, formatSize(row.size), row.barLeft - 14, centre, {
+      size: fontSize,
       align: "right",
       colour: tokens.text,
     });
@@ -166,7 +178,7 @@ export function createLadderPanel(tokens) {
     hairline(ctx, 0, y + GUTTER_HEIGHT, width, 0, tokens.hairline, surface.dpr);
 
     const centre = y + GUTTER_HEIGHT / 2;
-    labelText(ctx, tokens, "spread", 10, centre - 8, { colour: tokens.dim });
+    labelText(ctx, tokens, "spread", 12, centre - 12, { colour: tokens.dim });
 
     const ticks = Number.isFinite(state.spreadTicks) ? state.spreadTicks : NaN;
     const spreadBps = Number.isFinite(ticks) && Number.isFinite(state.mid)
@@ -177,16 +189,16 @@ export function createLadderPanel(tokens) {
       ctx,
       tokens,
       Number.isFinite(ticks) ? `${ticks.toFixed(0)} tick${ticks === 1 ? "" : "s"}` : "—",
-      10,
-      centre + 7,
-      { size: 12, colour: tokens.text }
+      12,
+      centre + 10,
+      { size: 15, colour: tokens.text }
     );
-    numberText(ctx, tokens, `${formatBps(spreadBps)} bps`, width - 10, centre + 7, {
-      size: 12,
+    numberText(ctx, tokens, `${formatBps(spreadBps)} bps`, width - 12, centre + 10, {
+      size: 15,
       align: "right",
       colour: tokens.tape,
     });
-    labelText(ctx, tokens, "0.01 usdt tick", width - 10, centre - 8, {
+    labelText(ctx, tokens, "0.01 usdt tick", width - 12, centre - 12, {
       colour: tokens.dim,
       align: "right",
     });

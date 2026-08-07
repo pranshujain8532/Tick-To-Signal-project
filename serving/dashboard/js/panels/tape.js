@@ -303,7 +303,7 @@ export function createTapePanel(tokens) {
     }
 
     // The mid is a straight line by construction, and it is amber because it is
-    // the market. Everything cyan on this panel is the model.
+    // the market. Everything blue on this panel is the model.
     hairline(ctx, 0, centre, width, 0, tokens.alpha.tape(0.5), overlay.dpr);
     labelText(ctx, tokens, "mid", 6, centre - 8, { colour: tokens.alpha.tape(0.8) });
     labelText(ctx, tokens, "asks", width - 34, 12, { colour: tokens.alpha.ask(0.9) });
@@ -390,7 +390,10 @@ export function createTapePanel(tokens) {
     const oldestY = Number.isFinite(oldest)
       ? top + usable * (1 - (oldest - low) / span)
       : height;
-    labelText(ctx, tokens, "mid drift · absolute", 6, oldestY < height / 2 ? height - 8 : 8, {
+    // Clamped away from both edges: the adaptive placement put it flush against
+    // the panel border, where it read as part of the divider rather than as a
+    // label belonging to this strip.
+    labelText(ctx, tokens, "mid drift · absolute", 8, oldestY < height / 2 ? height - 14 : 14, {
       colour: tokens.dim,
     });
   }

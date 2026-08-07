@@ -31,7 +31,7 @@
 
 set -euo pipefail
 
-SECONDS_TO_RECORD="${1:-23}"
+SECONDS_TO_RECORD="${1:-26}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASSETS="$REPO_ROOT/docs/assets"
 FRAMES="$REPO_ROOT/build/demo-frames"
@@ -42,7 +42,7 @@ DEBUG_PORT="${TTS_CHROME_PORT:-9222}"
 # still readable in a GitHub README at 100% zoom; 12 fps is the lowest rate at
 # which the depth tape still reads as scrolling rather than stepping. Together
 # with the palette settings below they are what keeps the file under 8 MB.
-GIF_WIDTH=960
+GIF_WIDTH=1000
 GIF_FPS=12
 
 PYTHON="${PYTHON:-python}"
@@ -161,7 +161,12 @@ PALETTE="$FRAMES/palette.png"
 
 echo
 echo "wrote:"
-ls -lh "$ASSETS/demo.mp4" "$ASSETS/demo.gif" "$ASSETS"/*.png | awk '{print "  " $5 "\t" $9}'
+# printf per file rather than `ls | awk`: this repository's path contains a
+# space, which awk splits on, so the size column printed a truncated directory
+# instead of the file it had just written.
+for artefact in "$ASSETS/demo.mp4" "$ASSETS/demo.gif" "$ASSETS"/*.png; do
+    printf '  %-8s %s\n' "$(du -h "$artefact" | cut -f1)" "$(basename "$artefact")"
+done
 
 GIF_BYTES=$(stat -c %s "$ASSETS/demo.gif" 2>/dev/null || stat -f %z "$ASSETS/demo.gif")
 if [ "$GIF_BYTES" -gt 8388608 ]; then

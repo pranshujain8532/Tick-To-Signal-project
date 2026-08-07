@@ -1,24 +1,37 @@
-/* main.js — wiring, and nothing else.
+/* main.js — wiring and routing, and nothing else.
  *
  * WHAT
- *     Builds the state, the socket, the eight panels and the one render loop,
- *     fetches the five static records, and connects. No drawing happens here
- *     and no data is interpreted here.
+ *     Builds the state, the socket, the panels and the one render loop; routes
+ *     between the three pages; fetches the five static records. No drawing
+ *     happens here and no data is interpreted here.
  *
  * WHY A SEPARATE ENTRY MODULE
- *     `render.js` owns the loop and `stream.js` owns the socket; if either also
+ *     `render.js` owns the loop and `stream.js` owns the socket. If either also
  *     owned construction, the loop would import the socket or the socket would
  *     import the panels, and the dependency graph would have a cycle in it
- *     within a week. Everything that knows about everything else lives in this
- *     one file, which is therefore the only file worth reading to learn how the
- *     dashboard is put together.
+ *     within a week. Everything that knows about everything else lives here,
+ *     which makes this the only file worth reading to learn how the dashboard
+ *     is put together.
+ *
+ * ROUTING, IN EIGHT LINES
+ *     The URL hash is the router. `#evidence` shows the evidence page; anything
+ *     unrecognised falls back to `live`. Rejected: a routing library, and a
+ *     history-API router — both need a server that rewrites unknown paths back
+ *     to index.html, and the server here is a StaticFiles mount whose whole
+ *     appeal is that it does nothing clever.
+ *
+ *     A page that is not showing is `hidden`, so its canvases have zero size
+ *     and the render loop skips its panels. The page switch is a performance
+ *     boundary as well as a navigational one: the Live page's tape is the
+ *     expensive surface, and it costs nothing while somebody is reading the
+ *     Evidence page.
  *
  * DEGRADING HONESTLY
  *     A record that will not load produces an empty state NAMING the file that
- *     would have populated it, never a placeholder number and never a spinner
- *     that spins forever. The panels that depend on live data go dim when the
- *     socket is down, because a still picture of a market is indistinguishable
- *     from a live one that stopped moving.
+ *     would have populated it — never a placeholder number, never a spinner
+ *     that spins forever. Panels that depend on live data dim when the socket
+ *     is down, because a still picture of a market is indistinguishable from a
+ *     live one that stopped moving.
  */
 
 import { readTokens } from "./canvas.js";
@@ -33,7 +46,10 @@ import { createStabilityPanel } from "./panels/stability.js";
 import { createLatencyPanel } from "./panels/latency.js";
 import { createParetoPanel } from "./panels/pareto.js";
 import { createEconomicsPanel } from "./panels/economics.js";
+import { createSystemPanel } from "./panels/system.js";
 import { createBootSequence } from "./panels/boot.js";
+
+const PAGES = ["live", "evidence", "system"];
 
 /**
  * What actually populates each endpoint, for the empty state.
@@ -63,12 +79,10 @@ function emptyStateText(path, error) {
 function main() {
   const tokens = readTokens();
   const state = createState();
-
   const app = document.getElementById("app");
+
   const stream = createStream(state, {
     onStatusChange(status, detail) {
-      // The attribute has exactly one writer, below, so that a gap and a
-      // dropped socket cannot fight over it. This handler only logs.
       if (status === "retrying" && typeof detail === "number") {
         console.info(`socket lost; retrying in ${detail} ms`);
       }
@@ -76,7 +90,7 @@ function main() {
     onServerError(detail) {
       // The server refuses unknown commands by name rather than ignoring them,
       // so this is a real disagreement between client and server and belongs in
-      // the console where it can be read, not swallowed.
+      // the console rather than swallowed.
       console.warn("server rejected a command:", detail);
     },
   });
@@ -86,43 +100,77 @@ function main() {
   const latency = createLatencyPanel(tokens);
   const pareto = createParetoPanel(tokens);
   const economics = createEconomicsPanel();
+  const system = createSystemPanel();
 
-  // Draw order is z-order for panels that overlap nothing, so it is chosen for
-  // cost instead: the tape blits first while the rest of the frame budget is
-  // still untouched.
+  // `page: null` means chrome that is on every page. Everything else is drawn
+  // only while its own page is showing.
   const panels = [
-    createTapePanel(tokens),
-    createLadderPanel(tokens),
-    createSignalPanel(tokens),
-    stability,
-    latency,
-    pareto,
-    economics,
-    header,
-    createBootSequence(state),
+    { page: "live", panel: createTapePanel(tokens) },
+    { page: "live", panel: createLadderPanel(tokens) },
+    { page: "live", panel: createSignalPanel(tokens) },
+    { page: "evidence", panel: stability },
+    { page: "evidence", panel: latency },
+    { page: "evidence", panel: pareto },
+    { page: "evidence", panel: economics },
+    { page: "system", panel: system },
+    { page: null, panel: header },
+    { page: null, panel: createBootSequence(state) },
+    { page: null, panel: connectionIndicator(app) },
   ];
 
-  // The connection indicator: the one piece of app-wide chrome that no single
-  // panel owns. It reconciles two independent reasons the screen must dim —
-  // the socket being down, and the feed being inside a session gap — into the
-  // one attribute the stylesheet reads. Written as a panel rather than a
-  // timer so it lives on the same clock as everything else.
-  panels.push({
-    draw(state, now) {
-      const dimmed = state.gapDimUntil > now;
-      const wanted = dimmed ? "gap" : state.connection;
-      if (app.dataset.connection !== wanted) app.dataset.connection = wanted;
-    },
+  // ------------------------------------------------------------- routing
+
+  function showPage(name) {
+    const page = PAGES.includes(name) ? name : "live";
+    state.page = page;
+    app.dataset.page = page;
+    for (const candidate of PAGES) {
+      document.getElementById(`page-${candidate}`).hidden = candidate !== page;
+    }
+    for (const tab of document.querySelectorAll(".tab")) {
+      if (tab.dataset.page === page) {
+        tab.setAttribute("aria-current", "page");
+      } else {
+        tab.removeAttribute("aria-current");
+      }
+    }
+    if (window.location.hash.slice(1) !== page) {
+      window.location.hash = page;
+    }
+  }
+
+  for (const tab of document.querySelectorAll(".tab")) {
+    tab.addEventListener("click", () => showPage(tab.dataset.page));
+  }
+  window.addEventListener("hashchange", () => showPage(window.location.hash.slice(1)));
+
+  window.addEventListener("keydown", (event) => {
+    if (event.target !== document.body) return;
+    const index = ["Digit1", "Digit2", "Digit3"].indexOf(event.code);
+    if (index !== -1) {
+      showPage(PAGES[index]);
+      return;
+    }
+    // Space pauses, which is the one shortcut a viewer will try untold.
+    if (event.code === "Space") {
+      event.preventDefault();
+      document.getElementById("pause").click();
+    }
   });
+
+  showPage(window.location.hash.slice(1));
 
   const loop = createRenderLoop(state, panels, stream);
   loop.start();
   stream.connect();
 
+  // ------------------------------------------------------- static records
+
   loadRecord("/meta")
     .then((meta) => {
       state.meta = meta;
       header.setMeta(meta);
+      system.setMeta(meta);
     })
     .catch((error) => {
       state.failures["/meta"] = emptyStateText("/meta", error);
@@ -133,6 +181,7 @@ function main() {
     .then((payload) => {
       state.stability = payload;
       stability.setData(payload);
+      system.setStability(payload);
     })
     .catch((error) => stability.setUnavailable(emptyStateText("/stability", error)));
 
@@ -140,6 +189,7 @@ function main() {
     .then((payload) => {
       state.economics = payload;
       economics.setData(payload);
+      system.setEconomics(payload);
     })
     .catch((error) => economics.setUnavailable(emptyStateText("/economics", error)));
 
@@ -147,6 +197,7 @@ function main() {
     .then((payload) => {
       state.pareto = payload;
       pareto.setData(payload);
+      system.setPareto(payload);
     })
     .catch((error) => pareto.setUnavailable(emptyStateText("/pareto", error)));
 
@@ -156,14 +207,26 @@ function main() {
       latency.setRecord(payload);
     })
     .catch((error) => console.error(emptyStateText("/latency", error)));
+}
 
-  // Space pauses, which is the one shortcut a viewer will try without being
-  // told. Everything else is a real focusable control.
-  window.addEventListener("keydown", (event) => {
-    if (event.code !== "Space" || event.target !== document.body) return;
-    event.preventDefault();
-    document.getElementById("pause").click();
-  });
+/**
+ * The one piece of chrome no panel owns: the connection attribute and its label.
+ *
+ * Written as a panel rather than as a socket callback so it lives on the same
+ * clock as everything else, and so there is exactly one writer for the
+ * attribute the stylesheet reads.
+ */
+function connectionIndicator(app) {
+  const label = document.getElementById("connection-state");
+  let shown = "";
+  return {
+    draw(state) {
+      if (state.connection === shown) return;
+      shown = state.connection;
+      app.dataset.connection = shown;
+      label.textContent = shown === "live" ? "live · flow=ack" : shown;
+    },
+  };
 }
 
 main();

@@ -80,23 +80,31 @@ export function createStabilityPanel(tokens) {
 
     // The headline. IR first because it is the number that says "this edge is
     // small relative to its own variability", which is the finding.
-    numberText(ctx, tokens, fixed(data.information_ratio, 2), 10, 30, {
-      size: 34,
+    //
+    // The two labels are placed from measured text width rather than from a
+    // fixed offset: at 34 px the mean's label ("per-block mean ic") started
+    // under the information ratio's and the two ran together.
+    numberText(ctx, tokens, fixed(data.information_ratio, 2), 14, 36, {
+      size: 40,
       colour: tokens.text,
     });
-    labelText(ctx, tokens, "information ratio", 10, 54, { colour: tokens.dim });
+    labelText(ctx, tokens, "information ratio", 14, 64, { colour: tokens.dim });
 
-    numberText(ctx, tokens, signed(data.mean, 3), 130, 30, {
-      size: 34,
+    const meanLeft = 190;
+    numberText(ctx, tokens, signed(data.mean, 3), meanLeft, 36, {
+      size: 40,
       colour: data.mean > 0 ? tokens.bid : tokens.ask,
     });
-    labelText(ctx, tokens, "per-block mean ic", 130, 54, { colour: tokens.dim });
+    labelText(ctx, tokens, "per-block mean ic", meanLeft, 64, { colour: tokens.dim });
+    labelText(ctx, tokens, "± 1 sigma band shown behind the bars", meanLeft + 190, 64, {
+      colour: tokens.alpha.text(0.5),
+    });
 
     drawBlocks(ctx, width, height);
   }
 
   function drawBlocks(ctx, width, height) {
-    const top = 72;
+    const top = 86;
     const bottom = height - 14;
     const centre = (top + bottom) / 2;
     const half = (bottom - top) / 2;
@@ -130,12 +138,9 @@ export function createStabilityPanel(tokens) {
     }
 
     hairline(ctx, left, centre, usable, 0, tokens.alpha.hairline(1), surface.dpr);
-    labelText(ctx, tokens, `± ${fixed(extreme, 2)}`, left, top - 4, {
+    labelText(ctx, tokens, `± ${fixed(extreme, 2)} ic`, left, top - 6, {
       colour: tokens.dim,
       upper: false,
-    });
-    labelText(ctx, tokens, "mean ± 1 sigma", left + 70, top - 4, {
-      colour: tokens.alpha.text(0.55),
     });
     labelText(ctx, tokens, "blocks in time order →", width - 10, bottom + 8, {
       colour: tokens.dim,

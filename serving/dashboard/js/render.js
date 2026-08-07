@@ -68,8 +68,15 @@ export function createRenderLoop(state, panels, stream) {
     // is what the tape blits by.
     const columns = commitColumn(state);
 
+    // Only the visible page's panels draw. A hidden page's canvases have zero
+    // size and its data has not changed in any way a viewer can see, so drawing
+    // it would spend the frame budget on pixels nobody is looking at — and the
+    // expensive surface in this dashboard, the depth tape, is on exactly one of
+    // the three pages. Chrome panels carry `page: null` and always draw.
     for (let index = 0; index < panels.length; index += 1) {
-      panels[index].draw(state, timestamp, columns);
+      const entry = panels[index];
+      if (entry.page !== null && entry.page !== state.page) continue;
+      entry.panel.draw(state, timestamp, columns);
     }
 
     pushRenderMs(state, performance.now() - started);
